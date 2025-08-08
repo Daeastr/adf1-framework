@@ -1,0 +1,43 @@
+﻿# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.egg-info/
+
+# Environment variables
+.env
+*.env.*
+.env.local
+.env.production
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Virtual environments
+venv/
+myenv/
+env/
+
+# Docker
+.dockerignore
+
+# Logs
+logs/
+*.log
+
+# Cloud
+gcp-key.json
+*.json
+
+# Build artifacts
+dist/
+build/

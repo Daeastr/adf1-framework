@@ -1,0 +1,9 @@
+﻿fastapi
+uvicorn[standard]
+python-dotenv
+google-generativeai
+requests
+structlog
+python-json-logger
+prometheus-client
+httpx
