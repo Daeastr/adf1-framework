@@ -22,9 +22,9 @@ class CapabilityService:
                 TaskType.SUMMARIZATION
             ],
             security_features=[
-                SecurityFeature.PROMPT_INJECTION_PROTECTION,
-                SecurityFeature.INPUT_SANITIZATION
-            ],
+    SecurityFeature.PROMPT_INJECTION_PROTECTION,
+    SecurityFeature.INPUT_SANITIZATION,
+],
           available_models=[
     ModelCapability(
         provider=ModelProvider.GOOGLE_GEMINI,

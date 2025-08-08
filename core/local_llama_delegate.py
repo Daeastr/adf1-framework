@@ -3,7 +3,7 @@ import requests
 from .llm_interface import LLMInterface
 
 class LocalLlamaDelegate(LLMInterface):
-    [cite_start]"""Delegate for interacting with a local LLM via an API endpoint (e.g., Ollama) [cite: 647-648]."""
+    """Delegate for interacting with a local LLM via an API endpoint (e.g., Ollama)."""
     def __init__(self, api_url: str = "http://localhost:11434/api/generate", model_name: str = "llama3"):
         self.api_url = api_url
         self.model_name = model_name
