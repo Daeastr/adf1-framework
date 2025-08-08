@@ -2,11 +2,12 @@
 
 import re
 
+
 def sanitize_input(prompt: str) -> str:
     """
     Sanitizes user input to mitigate basic prompt injection attacks.
     This looks for common instruction-hijacking phrases.
-    
+
     Args:
         prompt (str): The user-provided input.
 
@@ -15,10 +16,10 @@ def sanitize_input(prompt: str) -> str:
     """
     # Pattern to find phrases like "ignore the above instructions"
     injection_pattern = re.compile(
-        r'ignore the.*instructions|disregard the.*and follow|forget the previous context', 
-        re.IGNORECASE
+        r"ignore the.*instructions|disregard the.*and follow|forget the previous context",
+        re.IGNORECASE,
     )
-    
+
     if injection_pattern.search(prompt):
         # For simplicity, we'll log and return a safe message.
         # In a real app, you might strip the pattern or reject the input entirely.

@@ -17,8 +17,9 @@ load_dotenv()
 # --- API Setup ---
 app = FastAPI(
     title="Application Delegation Framework API",
-    description="An API to interact with interchangeable AI delegates securely."
+    description="An API to interact with interchangeable AI delegates securely.",
 )
+
 
 # --- Dependency Injection for LLM ---
 def get_llm_delegate() -> LLMInterface:
@@ -28,17 +29,20 @@ def get_llm_delegate() -> LLMInterface:
     """
     # To use Gemini Pro:
     return GeminiProDelegate()
-    
+
     # To use a local Llama model via Ollama:
     # return LocalLlamaDelegate()
+
 
 # --- API Data Models ---
 class TaskRequest(BaseModel):
     prompt: str
 
+
 class TaskResponse(BaseModel):
     status: str
     response: str
+
 
 # --- API Endpoints ---
 @app.get("/", tags=["Health Check"])
@@ -46,11 +50,9 @@ def read_root():
     """Root endpoint for health checks."""
     return {"status": "API is running"}
 
+
 @app.post("/v1/delegate-task", response_model=TaskResponse, tags=["Delegation"])
-def delegate_task(
-    request: TaskRequest, 
-    llm: LLMInterface = Depends(get_llm_delegate)
-):
+def delegate_task(request: TaskRequest, llm: LLMInterface = Depends(get_llm_delegate)):
     """
     Receives a prompt, sanitizes it, and delegates it to the configured LLM.
     """
@@ -70,4 +72,6 @@ def delegate_task(
     except Exception as e:
         # Generic error handler for other issues
         print(f"An unexpected error occurred: {e}")
-        raise HTTPException(status_code=500, detail="An internal server error occurred.")
+        raise HTTPException(
+            status_code=500, detail="An internal server error occurred."
+        )
