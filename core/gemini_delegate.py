@@ -1,4 +1,4 @@
-﻿import os
+import os
 import google.generativeai as genai
 from .llm_interface import LLMInterface
 
