@@ -1,80 +1,87 @@
-﻿# core/capability_models.py
+﻿import os
+from typing import List
+from .capability_models import (
+    FrameworkSignature, APICapability, ModelCapability,
+    TaskType, SecurityFeature, ModelProvider
+)
 
-from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
-from enum import Enum
+class CapabilityService:
+    def __init__(self, base_url: str = "http://127.0.0.1:8000"):
+        self.base_url = base_url
 
-
-class TaskType(str, Enum):
-    TEXT_GENERATION = "text_generation"
-    QUESTION_ANSWERING = "question_answering"
-    CREATIVE_WRITING = "creative_writing"
-    CODE_ASSISTANCE = "code_assistance"
-    ANALYSIS = "analysis"
-    SUMMARIZATION = "summarization"
-
-
-class SecurityFeature(str, Enum):
-    PROMPT_INJECTION_PROTECTION = "prompt_injection_protection"
-    INPUT_SANITIZATION = "input_sanitization"
-    RATE_LIMITING = "rate_limiting"
-    CONTENT_FILTERING = "content_filtering"
-
-
-class ModelProvider(str, Enum):
-    GOOGLE_GEMINI = "google_gemini"
-    OPENAI = "openai"
-    ANTHROPIC_CLAUDE = "anthropic_claude"
-    LOCAL_LLAMA = "local_llama"
-    OLLAMA = "ollama"
-
-
-class APICapability(BaseModel):
-    endpoint: str
-    method: str
-    description: str
-    input_schema: Dict[str, Any]
-    output_schema: Dict[str, Any]
-    example_request: Dict[str, Any]
-    example_response: Dict[str, Any]
-
-
-class ModelCapability(BaseModel):
-    provider: ModelProvider
-    model_name: str
-    is_active: bool
-    max_tokens: Optional[int] = None
-    supports_streaming: bool = False
-    cost_per_request: Optional[float] = None
-    response_time_avg_ms: Optional[int] = None
-
-
-class FrameworkSignature(BaseModel):
-    name: str = "Application Delegation Framework"
-    version: str = "1.0.0"
-    description: str = "Interchangeable AI delegation framework with security features"
-
-    supported_tasks: List[TaskType]
-    security_features: List[SecurityFeature]
-    available_models: List[ModelCapability]
-    api_endpoints: List[APICapability]
-    base_url: str
-    documentation_url: str
-
-    max_concurrent_requests: int = 100
-    supports_batch_processing: bool = False
-    supports_async: bool = True
-
-    authentication_required: bool = False
-    rate_limits: Dict[str, int] = {"requests_per_minute": 60}
-
-    health_check_endpoint: str = "/"
-    metrics_endpoint: Optional[str] = None
-
-    deployment_type: str = "api_service"
-    scaling_type: str = "horizontal"
-    resource_requirements: Dict[str, str] = {
-        "cpu": "0.5 cores",
-        "memory": "1GB",
-        "storage": "minimal",
-    }
+    def get_framework_signature(self) -> FrameworkSignature:
+        return FrameworkSignature(
+            supported_tasks=[
+                TaskType.TEXT_GENERATION,
+                TaskType.YoutubeING,
+                TaskType.CREATIVE_WRITING,
+                TaskType.CODE_ASSISTANCE,
+                TaskType.ANALYSIS,
+                TaskType.SUMMARIZATION,
+            ],
+            security_features=[
+                SecurityFeature.PROMPT_INJECTION_PROTECTION,
+                SecurityFeature.INPUT_SANITIZATION,
+            ],
+            available_models=[
+                ModelCapability(
+                    provider=ModelProvider.GOOGLE_GEMINI,
+                    model_name="gemini-pro",
+                    is_active=os.getenv("MODEL_TYPE", "gemini").lower() == "gemini",
+                    max_tokens=8192,
+                    supports_streaming=False,
+                    response_time_avg_ms=2000,
+                ),
+                ModelCapability(
+                    provider=ModelProvider.LOCAL_LLAMA,
+                    model_name=os.getenv("LOCAL_MODEL_NAME", "llama3"),
+                    is_active=os.getenv("MODEL_TYPE", "gemini").lower() == "local",
+                    max_tokens=4096,
+                    supports_streaming=True,
+                    response_time_avg_ms=500,
+                ),
+            ],
+            api_endpoints=[
+                APICapability(
+                    endpoint="/",
+                    method="GET",
+                    description="Health check endpoint",
+                    input_schema={},
+                    output_schema={"status": "string"},
+                    example_request={},
+                    example_response={"status": "API is running"},
+                ),
+                APICapability(
+                    endpoint="/v1/delegate-task",
+                    method="POST",
+                    description="Delegate task to AI model",
+                    input_schema={"prompt": {"type": "string", "required": True}},
+                    output_schema={
+                        "status": {"type": "string"},
+                        "response": {"type": "string"},
+                    },
+                    example_request={"prompt": "Hello, how are you?"},
+                    example_response={
+                        "status": "success",
+                        "response": "Hello! I'm doing well, thank you for asking.",
+                    },
+                ),
+                APICapability(
+                    endpoint="/v1/capabilities",
+                    method="GET",
+                    description="Get framework capabilities and signature",
+                    input_schema={},
+                    output_schema={
+                        "type": "object",
+                        "description": "Full capability signature",
+                    },
+                    example_request={},
+                    example_response={
+                        "name": "Application Delegation Framework",
+                        "version": "1.0.0",
+                    },
+                ),
+            ],
+            base_url=self.base_url,
+            documentation_url=f"{self.base_url}/docs",
+        )
