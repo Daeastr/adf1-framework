@@ -20,6 +20,5 @@ class GeminiProDelegate(LLMInterface):
             response = self.model.generate_content(prompt)
             return response.text
         except Exception as e:
-            # In a real app, you'd use your structured logger here
             print(f"Error generating response from Gemini: {e}")
             return "Error: Could not get a response from the AI model."
