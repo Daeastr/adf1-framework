@@ -1,4 +1,4 @@
-﻿import structlog
+import structlog
 import logging
 import sys
 from datetime import datetime
