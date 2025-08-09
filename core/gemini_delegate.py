@@ -7,14 +7,14 @@ class GeminiProDelegate(LLMInterface):
     """
     Delegate for interacting with the Google Gemini Pro model.
     """
-
+    
     def __init__(self):
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             raise ValueError("GEMINI_API_KEY environment variable not set.")
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel("gemini-pro")
-
+    
     def generate_response(self, prompt: str) -> str:
         try:
             response = self.model.generate_content(prompt)
