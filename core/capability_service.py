@@ -1,48 +1,34 @@
-﻿# core/capability_service.py
-
-import os
-from typing import List
-from .capability_models import (
-    FrameworkSignature, APICapability, ModelCapability, 
-    TaskType, SecurityFeature, ModelProvider
-)
-
-class CapabilityService:
-    def __init__(self, base_url: str = "http://127.0.0.1:8000"):
-        self.base_url = base_url
-        
-    def get_framework_signature(self) -> FrameworkSignature:
+﻿def get_framework_signature(self) -> FrameworkSignature:
         return FrameworkSignature(
             supported_tasks=[
                 TaskType.TEXT_GENERATION,
-                TaskType.QUESTION_ANSWERING,
+                TaskType.YoutubeING,
                 TaskType.CREATIVE_WRITING,
                 TaskType.CODE_ASSISTANCE,
                 TaskType.ANALYSIS,
                 TaskType.SUMMARIZATION
             ],
             security_features=[
-    SecurityFeature.PROMPT_INJECTION_PROTECTION,
-    SecurityFeature.INPUT_SANITIZATION,
-],
-          available_models=[
-    ModelCapability(
-        provider=ModelProvider.GOOGLE_GEMINI,
-        model_name="gemini-pro",
-        is_active=os.getenv('MODEL_TYPE', 'gemini').lower() == 'gemini',
-        max_tokens=8192,
-        supports_streaming=False,
-        response_time_avg_ms=2000
-    ),
-    ModelCapability(
-        provider=ModelProvider.LOCAL_LLAMA,
-        model_name=os.getenv('LOCAL_MODEL_NAME', 'llama3'),
-        is_active=os.getenv('MODEL_TYPE', 'gemini').lower() == 'local',
-        max_tokens=4096,
-        supports_streaming=True,
-        response_time_avg_ms=500
-    )
-],
+                SecurityFeature.PROMPT_INJECTION_PROTECTION,
+                SecurityFeature.INPUT_SANITIZATION,
+            ],
+            available_models=[
+                ModelCapability(
+                    provider=ModelProvider.GOOGLE_GEMINI,
+                    model_name="gemini-pro",
+                    is_active=os.getenv('MODEL_TYPE', 'gemini').lower() == 'gemini',
+                    max_tokens=8192,
+                    supports_streaming=False,
+                    response_time_avg_ms=2000
+                ),
+                ModelCapability(
+                    provider=ModelProvider.LOCAL_LLAMA,
+                    model_name=os.getenv('LOCAL_MODEL_NAME', 'llama3'),
+                    is_active=os.getenv('MODEL_TYPE', 'gemini').lower() == 'local',
+                    max_tokens=4096,
+                    supports_streaming=True,
+                    response_time_avg_ms=500
+                )
             ],
             api_endpoints=[
                 APICapability(
