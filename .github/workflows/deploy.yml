@@ -61,15 +61,18 @@ jobs:
         else
           echo "No tests directory found, skipping tests"
         fi
-   
-    - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v3
-      if: matrix.python-version == '3.11'
-      with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-
+- name: Create deployment package
+      run: |
+        mkdir -p dist
+        # Copy all files except dist directory to avoid circular reference
+        find . -maxdepth 1 -not -name '.' -not -name 'dist' -exec cp -r {} dist/ \;
+        # Alternative approach using rsync (more reliable):
+        # rsync -av --exclude='dist' . dist/
+        cd dist
+        # Remove unnecessary files
+        rm -rf .git .github tests __pycache__ .pytest_cache
+        find . -name "*.pyc" -delete
+        find . -name "__pycache__" -type d -exec rm -rf {} +
 
   build:
     needs: test
