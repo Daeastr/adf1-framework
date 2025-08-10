@@ -1,6 +1,5 @@
 ﻿name: Deploy Application
 
-
 on:
   push:
     branches: [ main, master ]
@@ -8,14 +7,12 @@ on:
     branches: [ main, master ]
   workflow_dispatch:  # Allow manual deployment
 
-
 jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ['3.9', '3.10', '3.11']
-
 
     steps:
     - uses: actions/checkout@v4
@@ -61,18 +58,14 @@ jobs:
         else
           echo "No tests directory found, skipping tests"
         fi
-- name: Create deployment package
-      run: |
-        mkdir -p dist
-        # Copy all files except dist directory to avoid circular reference
-        find . -maxdepth 1 -not -name '.' -not -name 'dist' -exec cp -r {} dist/ \;
-        # Alternative approach using rsync (more reliable):
-        # rsync -av --exclude='dist' . dist/
-        cd dist
-        # Remove unnecessary files
-        rm -rf .git .github tests __pycache__ .pytest_cache
-        find . -name "*.pyc" -delete
-        find . -name "__pycache__" -type d -exec rm -rf {} +
+   
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v3
+      if: matrix.python-version == '3.11'
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
 
   build:
     needs: test
@@ -95,7 +88,7 @@ jobs:
     - name: Create deployment package
       run: |
         mkdir -p dist
-        cp -r . dist/
+        rsync -av --exclude='dist' . dist/
         cd dist
         # Remove unnecessary files
         rm -rf .git .github tests __pycache__ .pytest_cache
@@ -103,7 +96,7 @@ jobs:
         find . -name "__pycache__" -type d -exec rm -rf {} +
    
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v4 # <-- NEW VERSION
+      uses: actions/upload-artifact@v4
       with:
         name: python-app
         path: dist/
@@ -130,7 +123,6 @@ jobs:
         # rsync -avz ./app/ user@staging-server:/path/to/app/
         # ssh user@staging-server "cd /path/to/app && pip install -r requirements.txt && systemctl restart your-app"
         echo "Staging deployment completed"
-
 
   # Deploy to production (only on manual trigger or tagged releases)
   deploy-production:
@@ -160,7 +152,6 @@ jobs:
         echo "✅ Production deployment successful!"
         # Add notification logic here (Slack, Discord, email, etc.)
 
-
   # Docker deployment (optional)
   deploy-docker:
     needs: build
@@ -178,7 +169,7 @@ jobs:
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+        password: ${{ secrets.github_TOKEN }}
    
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
