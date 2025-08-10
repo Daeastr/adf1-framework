@@ -100,11 +100,10 @@ jobs:
         find . -name "__pycache__" -type d -exec rm -rf {} +
    
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4 # <-- NEW VERSION
       with:
         name: python-app
         path: dist/
-
 
   # Deploy to staging/development server
   deploy-staging:
