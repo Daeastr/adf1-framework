@@ -110,7 +110,7 @@ jobs:
    
     steps:
     - name: Download build artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: python-app
         path: ./app
@@ -133,7 +133,7 @@ jobs:
    
     steps:
     - name: Download build artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: python-app
         path: ./app
@@ -171,13 +171,16 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.github_TOKEN }}
    
+    - name: Set lowercase repository name
+      run: echo "REPO_NAME=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
         context: .
         push: true
         tags: |
-          ghcr.io/${{ github.repository }}:latest
-          ghcr.io/${{ github.repository }}:${{ github.sha }}
+          ghcr.io/${{ env.REPO_NAME }}:latest
+          ghcr.io/${{ env.REPO_NAME }}:${{ github.sha }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
