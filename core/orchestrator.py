@@ -29,6 +29,17 @@ def load_all_instructions(raise_on_invalid: bool = True) -> List[Dict[str, Any]]
     if not INSTRUCTIONS_DIR.exists():
         print(f"⚠ instructions directory not found at {INSTRUCTIONS_DIR}")
         return valid_instructions
+for file_path in instructions_dir.glob("*.json"):
+    # ⬇ Skip the schema definition itself
+    if file_path.name == "schema.json":
+        continue
+
+    try:
+        instruction = validate_instruction_file(file_path)
+        print(f"✅ Loaded {file_path.name}: {instruction}")
+        valid_instructions.append(instruction)
+    except ValidationError as e:
+        print(f"❌ {file_path.name} failed validation: {e}")
 
     for file_path in INSTRUCTIONS_DIR.glob("*.json"):
         # Skip the schema definition itself
