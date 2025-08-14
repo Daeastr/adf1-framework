@@ -55,6 +55,23 @@ for file_path in instructions_dir.glob("*.json"):
             print(f"❌ {file_path.name} failed validation: {e}")
             if raise_on_invalid:
                 raise
+def load_all_instructions():
+    instructions_dir = Path(__file__).parent.parent / "instructions"
+    valid_instructions = []
+
+    for file_path in instructions_dir.glob("*.json"):
+        # ⬇ Skip the schema definition itself
+        if file_path.name == "schema.json":
+            continue
+        try:
+            instruction = validate_instruction_file(file_path)
+            print(f"✅ Loaded {file_path.name}: {instruction}")
+            valid_instructions.append(instruction)
+        except ValidationError as e:
+            print(f"❌ {file_path.name} failed validation: {e}")
+
+    # <- This return should be flush with the for loop, *not* indented inside try/except
+    return valid_instructions
 
     return valid_instructions
 
