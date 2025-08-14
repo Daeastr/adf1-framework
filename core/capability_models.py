@@ -1,6 +1,9 @@
 ﻿from enum import Enum
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
+from enum import Enum
+from typing import List, Dict, Any, Optional
+from pydantic import BaseModel
 
 
 class TaskType(str, Enum):
@@ -74,3 +77,16 @@ class FrameworkSignature(BaseModel):
         "memory": "1GB",
         "storage": "minimal",
     }
+import pytest
+from core import capability_models as cm
+
+def test_framework_signature_model_instantiates():
+    sig = cm.FrameworkSignature(
+        supported_tasks=[cm.TaskType.QUESTION_ANSWERING],
+        security_features=[cm.SecurityFeature.INPUT_SANITIZATION],
+        available_models=[],
+        api_endpoints=[],
+        base_url="https://example.com",
+        documentation_url="https://example.com/docs"
+    )
+    assert sig.supported_tasks[0] == cm.TaskType.QUESTION_ANSWERING
