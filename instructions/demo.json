@@ -1,0 +1,31 @@
+{
+  "id": "demo-000",
+  "action": "noop",
+  "params": {}
+}
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AADF Instruction",
+  "type": "object",
+  "required": ["id", "action", "params"],
+  "properties": {
+    "id": { "type": "string" },
+    "action": { "type": "string" },
+    "params": { "type": "object" },
+    "priority": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+    "risk": {
+      "type": "string",
+      "enum": ["safe", "review", "critical"]
+    }
+  }
+}
+{
+  "id": "demo-000",
+  "action": "noop",
+  "params": {},
+  "priority": "low",
+  "risk": "safe"
+}
