@@ -59,4 +59,14 @@ if __name__ == "__main__":
     valid_instrs = load_all_instructions()
     if valid_instrs:
         run_mapped_tests(valid_instrs)
+from pathlib import Path
+from core import instructions_parser as ip
+
+def load_all_instructions():
+    """Read and validate all instruction docs from instructions/"""
+    instr_dir = Path(__file__).parent.parent / "instructions"
+    docs = []
+    for file in instr_dir.glob("*.json"):
+        docs.append(ip.load_and_validate(str(file)))
+    return docs
 
