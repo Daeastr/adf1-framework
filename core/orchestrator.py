@@ -69,4 +69,26 @@ def load_all_instructions():
     for file in instr_dir.glob("*.json"):
         docs.append(ip.load_and_validate(str(file)))
     return docs
+from pathlib import Path
+from core import instructions_parser as ip
+
+# Configurable so tests can patch it
+INSTRUCTIONS_DIR = Path(__file__).parent.parent / "instructions"
+
+def load_all_instructions():
+    docs = []
+    for file in INSTRUCTIONS_DIR.glob("*.json"):
+        docs.append(ip.load_and_validate(str(file)))
+    return docs
+# core/orchestrator.py
+from pathlib import Path
+from core import instructions_parser as ip
+
+INSTRUCTIONS_DIR = Path(__file__).parent.parent / "instructions"
+
+def load_all_instructions():
+    docs = []
+    for file in INSTRUCTIONS_DIR.glob("*.json"):
+        docs.append(ip.load_and_validate(str(file)))
+    return docs
 
