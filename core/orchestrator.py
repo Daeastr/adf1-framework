@@ -1,12 +1,9 @@
 # core/orchestrator.py
-
 from pathlib import Path
 import json
 import subprocess
-
 from core.validator import validate_instruction_file, ValidationError
 
-# Path to action→tests mapping
 ACTION_MAP_PATH = Path(__file__).parent.parent / "tests" / "action_map.json"
 
 def load_all_instructions():
@@ -15,7 +12,7 @@ def load_all_instructions():
     valid_instructions = []
 
     for file_path in instructions_dir.glob("*.json"):
-        # ⬇ Skip the schema definition itself
+        # Skip the schema definition itself
         if file_path.name == "schema.json":
             continue
 
@@ -26,7 +23,7 @@ def load_all_instructions():
         except ValidationError as e:
             print(f"❌ {file_path.name} failed validation: {e}")
 
-    return valid_instructions
+    return valid_instructions  # ✅ inside a function
 
 def run_mapped_tests(valid_instructions):
     """Run only tests mapped to the actions in valid_instructions."""
@@ -38,13 +35,12 @@ def run_mapped_tests(valid_instructions):
         action_map = json.load(f)
 
     tests_to_run = set()
-
     for instr in valid_instructions:
         action = instr.get("action")
         if action in action_map:
             tests_to_run.update(action_map[action])
         else:
-            print(f"⚠ No mapping for action '{action}', will require full test suite.")
+            print(f"⚠ No mapping for action '{action}', running full test suite.")
             return subprocess.call(["pytest"])  # fallback: run everything
 
     if tests_to_run:
@@ -55,10 +51,10 @@ def run_mapped_tests(valid_instructions):
     return subprocess.call(["pytest"])
 
 if __name__ == "__main__":
-    # 1. Load & validate all instruction files
     valid_instrs = load_all_instructions()
-
-    # 2. Run mapped tests if we have valid instructions
     if valid_instrs:
         run_mapped_tests(valid_instrs)
+
+print(f"Validating {file_path}")
+instruction = validate_instruction_file(file_path)
 
