@@ -9,17 +9,37 @@ ACTION_MAP_PATH = Path("tests/action_map.json")
 INSTRUCTIONS_DIR = Path(__file__).parent.parent / "instructions"
 INSTR_DIR = Path(__file__).parent.parent / "instructions"
 
+# Files to skip when parsing instructions
+SKIP_FILES = {"schema.json", "template.json", "config.json"}
+
+def is_valid_instruction_file(filepath: Path) -> bool:
+    """Check if a JSON file is a valid instruction file."""
+    if filepath.name in SKIP_FILES:
+        return False
+    
+    try:
+        with filepath.open(encoding="utf-8") as fh:
+            data = json.load(fh)
+        
+        # Must be a dict with both 'id' and 'action' keys
+        return (isinstance(data, dict) and 
+                "id" in data and 
+                "action" in data and
+                data["action"])  # action must not be empty
+    except Exception:
+        return False
+
 def collect_actions_safe():
     """Yield unique action values from valid single‑object instruction files."""
     actions = set()
     for f in INSTR_DIR.glob("*.json"):
-        try:
-            with f.open(encoding="utf-8") as fh:
-                data = json.load(fh)
-            if isinstance(data, dict) and "id" in data and "action" in data:
+        if is_valid_instruction_file(f):
+            try:
+                with f.open(encoding="utf-8") as fh:
+                    data = json.load(fh)
                 actions.add(data["action"])
-        except Exception as e:
-            print(f"Skipping invalid JSON in {f.name}")
+            except Exception as e:
+                print(f"⚠️ Error reading {f.name}: {e}")
     return sorted(actions)
 
 def get_tests_for_actions(actions: list[str]) -> list[str]:
@@ -38,11 +58,17 @@ def load_all_instructions():
         return instructions
     
     for json_file in INSTRUCTIONS_DIR.glob("*.json"):
+        # Skip non-instruction files
+        if not is_valid_instruction_file(json_file):
+            if json_file.name not in SKIP_FILES:
+                print(f"⚠️ Skipping invalid instruction file: {json_file.name}")
+            continue
+        
         try:
             with open(json_file, "r", encoding="utf-8") as f:
                 instruction = json.load(f)
             
-            # Basic validation
+            # Basic validation (redundant but kept for safety)
             if not instruction.get("action"):
                 print(f"⚠️ Skipping {json_file.name}: missing 'action' field")
                 continue
