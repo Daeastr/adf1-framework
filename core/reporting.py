@@ -34,22 +34,16 @@ def render_step_summary(step: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def render_step_badges(step: dict) -> str:
-    """Render priority and risk badges for a step, matching render_step_summary conventions."""
+def render_step_badges(instruction: dict) -> str:
     badges = []
-    
-    # Metadata badges - matching render_step_summary exactly
-    priority = step.get("priority", "unknown").capitalize()
-    risk = step.get("risk", "unknown").capitalize()
-    
-    # Priority badge
-    color = {"Low": "brightgreen", "Medium": "yellow", "High": "red", "Unknown": "lightgrey"}.get(priority, "lightgrey")
-    badges.append(f"![Priority: {priority}](https://img.shields.io/badge/Priority-{priority}-{color})")
-    
-    # Risk badge
-    color = {"Safe": "brightgreen", "Review": "yellow", "Critical": "red", "Unknown": "lightgrey"}.get(risk, "lightgrey")
-    badges.append(f"![Risk: {risk}](https://img.shields.io/badge/Risk-{risk}-{color})")
-    
+    if "priority" in instruction:
+        p = instruction["priority"].capitalize()
+        pcolor = {"Low": "brightgreen", "Medium": "yellow", "High": "red"}.get(p, "lightgrey")
+        badges.append(f"![Priority: {p}](https://img.shields.io/badge/Priority-{p}-{pcolor})")
+    if "risk" in instruction:
+        r = instruction["risk"].capitalize()
+        rcolor = {"Safe": "brightgreen", "Review": "yellow", "Critical": "red"}.get(r, "lightgrey")
+        badges.append(f"![Risk: {r}](https://img.shields.io/badge/Risk-{r}-{rcolor})")
     return " ".join(badges)
 
 
