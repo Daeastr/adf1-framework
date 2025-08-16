@@ -2,20 +2,52 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "ADF1 Instruction",
   "type": "object",
-  "required": ["id", "action", "params"],
+  "required": ["id", "action", "params", "priority", "risk"],
   "properties": {
     "id": { "type": "string" },
     "action": { "type": "string" },
-    "params": { "type": "object" }
-  }
+    "params": { "type": "object" },
+    "priority": {
+      "type": "string",
+      "enum": ["low", "medium", "high"],
+      "description": "Priority level for this instruction"
+    },
+    "risk": {
+      "type": "string",
+      "enum": ["safe", "review", "critical"],
+      "description": "Risk assessment level for this instruction"
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "action"],
+        "properties": {
+          "id": { "type": "string" },
+          "action": { "type": "string" },
+          "params": { "type": "object" },
+          "priority": {
+            "type": "string",
+            "enum": ["low", "medium", "high"],
+            "description": "Priority level for this step"
+          },
+          "risk": {
+            "type": "string",
+            "enum": ["safe", "review", "critical"],
+            "description": "Risk assessment level for this step"
+          },
+          "duration_sec": {
+            "type": "number",
+            "description": "Duration of step execution in seconds"
+          },
+          "log_file": {
+            "type": "string",
+            "description": "Path to log file for this step"
+          }
+        }
+      },
+      "description": "Array of steps within this instruction"
+    }
+  },
+  "additionalProperties": false
 }
-
-"priority": {
-  "type": "string",
-  "enum": ["low", "medium", "high"]
-},
-"risk": {
-  "type": "string",
-  "enum": ["safe", "review", "critical"]
-}
-
