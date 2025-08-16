@@ -9,32 +9,28 @@
     "params": { "type": "object" },
     "priority": {
       "type": "string",
-      "enum": ["low", "medium", "high"],
-      "description": "Priority level for this instruction"
+      "enum": ["low", "medium", "high"]
     },
     "risk": {
       "type": "string",
-      "enum": ["safe", "review", "critical"],
-      "description": "Risk assessment level for this instruction"
+      "enum": ["safe", "review", "critical"]
     },
     "steps": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "action"],
+        "required": ["id", "action", "priority", "risk"],
         "properties": {
           "id": { "type": "string" },
           "action": { "type": "string" },
           "params": { "type": "object" },
           "priority": {
             "type": "string",
-            "enum": ["low", "medium", "high"],
-            "description": "Priority level for this step"
+            "enum": ["low", "medium", "high"]
           },
           "risk": {
             "type": "string",
-            "enum": ["safe", "review", "critical"],
-            "description": "Risk assessment level for this step"
+            "enum": ["safe", "review", "critical"]
           },
           "duration_sec": {
             "type": "number",

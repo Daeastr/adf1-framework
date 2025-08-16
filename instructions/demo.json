@@ -1,19 +1,7 @@
 {
-  "id": "demo-002",
+  "id": "demo-001",
   "action": "noop",
   "params": {},
-  "priority": "high",
-  "risk": "critical",
-  "steps": [
-    {
-      "id": "step-1",
-      "action": "noop",
-      "params": {}
-    },
-    {
-      "id": "step-2", 
-      "action": "validate",
-      "params": {}
-    }
-  ]
+  "priority": "low",
+  "risk": "safe"
 }
