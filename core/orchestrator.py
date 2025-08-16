@@ -3,7 +3,7 @@ import json
 import subprocess
 from core.agent_registry import select_agent_for_step
 from core.sandbox_runner import run_in_sandbox
-from core.execute import run_agent_task  # import your upgraded executor
+from core.executor import run_agent_task  # import your upgraded executor
 
 ACTION_MAP_PATH = Path("tests/action_map.json")
 INSTRUCTIONS_DIR = Path(__file__).parent.parent / "instructions"
@@ -43,8 +43,13 @@ def collect_actions_safe():
     return sorted(actions)
 
 def get_tests_for_actions(actions: list[str]) -> list[str]:
-    with open(ACTION_MAP_PATH, "r", encoding="utf-8") as f:
-        action_map = json.load(f)
+    try:
+        with open(ACTION_MAP_PATH, "r", encoding="utf-8") as f:
+            action_map = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        print(f"⚠️ Could not load action map from {ACTION_MAP_PATH}: {e}")
+        return []
+    
     test_files = []
     for action in actions:
         test_files.extend(action_map.get(action, []))
@@ -112,7 +117,7 @@ def run_all_validated():
     
     if not valid_instrs:
         print("❌ No valid instructions found to execute")
-        return
+        return []
     
     print(f"🚀 Running {len(valid_instrs)} validated instructions...")
     
