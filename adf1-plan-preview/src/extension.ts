@@ -2,27 +2,14 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// This method is called when your extension is activated
 export function activate(context: vscode.ExtensionContext) {
-    // Use the console to output diagnostic information (console.log) and errors (console.error)
-    console.log('Congratulations, your extension "adf1-plan-preview" is now active!');
-
-    // Register the Plan Preview provider
-    const provider = new PlanPreviewProvider(vscode.workspace.rootPath || '');
+    const root = vscode.workspace.rootPath || '';
+    const provider = new PlanPreviewProvider(root);
     vscode.window.registerTreeDataProvider('planPreviewView', provider);
-
-    // The existing command registration
-    const disposable = vscode.commands.registerCommand('adf1-plan-preview.helloWorld', () => {
-        // The code you place here will be executed every time your command is executed
-        // Display a message box to the user
-        vscode.window.showInformationMessage('Hello World from adf1-plan-preview!');
-    });
-
-    context.subscriptions.push(disposable);
 }
 
 class PlanPreviewProvider implements vscode.TreeDataProvider<InstructionItem> {
-    private _onDidChangeTreeData: vscode.EventEmitter<InstructionItem | undefined | void> = new vscode.EventEmitter<InstructionItem | undefined | void>();
+    private _onDidChangeTreeData: vscode.EventEmitter<InstructionItem | undefined | void> = new vscode.EventEmitter();
     readonly onDidChangeTreeData: vscode.Event<InstructionItem | undefined | void> = this._onDidChangeTreeData.event;
     
     constructor(private workspaceRoot: string) {}
@@ -46,16 +33,21 @@ class PlanPreviewProvider implements vscode.TreeDataProvider<InstructionItem> {
             .filter(f => f.endsWith('.json') && f !== 'schema.json');
 
         return Promise.resolve(files.map(f => {
-            const fullPath = path.join(instrDir, f);
-            const raw = JSON.parse(fs.readFileSync(fullPath, 'utf8'));
-            const label = raw.id || f;
-            const badges: string[] = [];
-            if (raw.priority) { badges.push(`P:${raw.priority}`); }
-            if (raw.risk) { badges.push(`R:${raw.risk}`); }
-            return new InstructionItem(
-                `${label} ${badges.join(' ')}`,
-                vscode.TreeItemCollapsibleState.None
-            );
+            try {
+                const fullPath = path.join(instrDir, f);
+                const raw = JSON.parse(fs.readFileSync(fullPath, 'utf8'));
+                const label = raw.id || f;
+                const badges: string[] = [];
+                if (raw.priority) { badges.push(`P:${raw.priority}`); }
+                if (raw.risk) { badges.push(`R:${raw.risk}`); }
+                return new InstructionItem(
+                    `${label} ${badges.join(' ')}`.trim(),
+                    vscode.TreeItemCollapsibleState.None,
+                    fullPath
+                );
+            } catch {
+                return new InstructionItem(`${f} (invalid JSON)`, vscode.TreeItemCollapsibleState.None);
+            }
         }));
     }
 }
@@ -63,11 +55,16 @@ class PlanPreviewProvider implements vscode.TreeDataProvider<InstructionItem> {
 class InstructionItem extends vscode.TreeItem {
     constructor(
         public readonly label: string,
-        public readonly collapsibleState: vscode.TreeItemCollapsibleState
+        public readonly collapsibleState: vscode.TreeItemCollapsibleState,
+        public readonly filePath?: string
     ) {
         super(label, collapsibleState);
+        if (filePath) {
+            this.command = {
+                command: 'vscode.open',
+                title: 'Open Instruction',
+                arguments: [vscode.Uri.file(filePath)]
+            };
+        }
     }
 }
-
-// This method is called when your extension is deactivated
-export function deactivate() {}
