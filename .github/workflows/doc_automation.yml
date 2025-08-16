@@ -1,4 +1,4 @@
-- name: Upload step logs
+- name: Upload orchestrator step logs
   uses: actions/upload-artifact@v4
   with:
     name: orchestrator-step-logs

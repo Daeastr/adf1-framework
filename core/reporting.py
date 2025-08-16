@@ -26,7 +26,9 @@ def render_step_summary(step: Dict[str, Any]) -> str:
     # Existing output/logs
     if "duration_sec" in step:
         lines.append(f"⏱ Duration: {step['duration_sec']}s")
-    if "log_file" in step:
+    
+    # Updated log file check using .get() method
+    if step.get("log_file"):
         lines.append(f"[📄 Full Log]({step['log_file']})")
 
     return "\n".join(lines)
@@ -56,4 +58,4 @@ def render_multiple_steps(steps: list) -> str:
     summaries = []
     for step in steps:
         summaries.append(render_step_summary(step))
-    return "\n\n".join(summaries)
+    return "\n\n".join(summaries)"
