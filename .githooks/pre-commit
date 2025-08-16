@@ -1,0 +1,3 @@
+﻿#!/bin/sh
+echo "Running placeholder test generator..."
+python tools/gen_placeholder_tests.py
