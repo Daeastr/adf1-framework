@@ -3,5 +3,6 @@
   "action": "noop",
   "params": {},
   "priority": "low",
-  "risk": "safe"
+  "risk": "safe",
+  "capabilities": ["FILE_IO"]
 }

@@ -14,6 +14,11 @@ def render_step_summary(step: Dict[str, Any]) -> str:
     risk = step.get("risk", "unknown").capitalize()
     lines.append(f"🧭 Priority: {priority} | 🚨 Risk: {risk}")
 
+    # Capabilities display
+    capabilities = step.get("_capabilities", [])
+    if capabilities:
+        lines.append(f"🔐 **Capabilities**: {', '.join(capabilities)}")
+
     # Existing output/logs
     if "duration_sec" in step:
         lines.append(f"⏱ Duration: {step['duration_sec']}s")

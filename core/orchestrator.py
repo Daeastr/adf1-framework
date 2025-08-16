@@ -20,8 +20,16 @@ def get_tests_for_actions(actions: list[str]) -> list[str]:
 # else:
 #     subprocess.run(["pytest"])
 
+def normalize_step_capabilities(step: dict) -> None:
+    """Normalize step capabilities by ensuring _capabilities key exists."""
+    step["_capabilities"] = step.get("capabilities", [])
+
 def run_mapped_tests(all_valid_steps: list[dict]) -> None:
     """Run only mapped tests based on step actions."""
+    # Normalize capabilities for all steps
+    for step in all_valid_steps:
+        normalize_step_capabilities(step)
+    
     # Extract actions from all valid steps
     actions = [step["action"] for step in all_valid_steps]
     

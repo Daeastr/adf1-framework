@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "ADF1 Instruction",
   "type": "object",
-  "required": ["id", "action", "params", "priority", "risk"],
+  "required": ["id", "action", "params", "priority", "risk", "capabilities"],
   "properties": {
     "id": { "type": "string" },
     "action": { "type": "string" },
@@ -14,6 +14,13 @@
     "risk": {
       "type": "string",
       "enum": ["safe", "review", "critical"]
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["FILE_IO", "NETWORK", "SECURITY", "QUESTION_ANSWERING", "SANITIZATION"]
+      }
     },
     "steps": {
       "type": "array",
@@ -31,6 +38,13 @@
           "risk": {
             "type": "string",
             "enum": ["safe", "review", "critical"]
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["FILE_IO", "NETWORK", "SECURITY", "QUESTION_ANSWERING", "SANITIZATION"]
+            }
           },
           "duration_sec": {
             "type": "number",
