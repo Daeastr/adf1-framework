@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "ADF1 Instruction",
   "type": "object",
-  "required": ["id", "action", "params", "priority", "risk", "capabilities"],
+  "required": ["id", "action", "params", "priority", "risk", "capabilities", "sandbox"],
   "properties": {
     "id": { "type": "string" },
     "action": { "type": "string" },
@@ -21,6 +21,16 @@
         "type": "string",
         "enum": ["FILE_IO", "NETWORK", "SECURITY", "QUESTION_ANSWERING", "SANITIZATION"]
       }
+    },
+    "sandbox": {
+      "type": "object",
+      "properties": {
+        "image": { "type": "string" },
+        "cpu": { "type": "string" },
+        "memory": { "type": "string" },
+        "network": { "type": "boolean" }
+      },
+      "required": ["image"]
     },
     "steps": {
       "type": "array",

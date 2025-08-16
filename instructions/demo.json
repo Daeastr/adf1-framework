@@ -1,8 +1,14 @@
 {
-  "id": "demo-001",
-  "action": "noop",
+  "id": "demo-003",
+  "action": "apply_patch",
   "params": {},
-  "priority": "low",
-  "risk": "safe",
-  "capabilities": ["FILE_IO"]
+  "priority": "high",
+  "risk": "review",
+  "capabilities": ["FILE_IO"],
+  "sandbox": {
+    "image": "python:3.11",
+    "cpu": "2",
+    "memory": "4Gi",
+    "network": false
+  }
 }
