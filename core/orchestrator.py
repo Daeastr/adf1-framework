@@ -4,13 +4,14 @@ import subprocess
 from core.agent_registry import select_agent_for_step
 from core.sandbox_runner import run_in_sandbox
 from core.executor import run_agent_task  # import your upgraded executor
+from core.validator import validate_instruction_file, ValidationError
 
 ACTION_MAP_PATH = Path("tests/action_map.json")
 INSTRUCTIONS_DIR = Path(__file__).parent.parent / "instructions"
 INSTR_DIR = Path(__file__).parent.parent / "instructions"
 
 # Files to skip when parsing instructions
-SKIP_FILES = {"schema.json", "template.json", "config.json"}
+SKIP_FILES = {"schema.json"}  # explicit skip list
 
 def is_valid_instruction_file(filepath: Path) -> bool:
     """Check if a JSON file is a valid instruction file."""
@@ -56,37 +57,27 @@ def get_tests_for_actions(actions: list[str]) -> list[str]:
     return sorted(set(test_files))
 
 def load_all_instructions():
-    """Enhanced loader/validator for JSON instruction documents"""
+    """Load + validate all instruction files, skipping non‑instructions."""
     instructions = []
     if not INSTRUCTIONS_DIR.exists():
         print(f"⚠️ Instructions directory not found: {INSTRUCTIONS_DIR}")
         return instructions
-    
+
     for json_file in INSTRUCTIONS_DIR.glob("*.json"):
-        # Skip anything that's not a valid instruction
-        if not is_valid_instruction_file(json_file):
-            print(f"ℹ️ Skipping non‑instruction file: {json_file.name}")
+        # Skip helper/config files
+        if json_file.name in SKIP_FILES:
+            print(f"ℹ️ Skipping helper file: {json_file.name}")
             continue
 
         try:
-            with open(json_file, "r", encoding="utf-8") as f:
-                instruction = json.load(f)
+            instr = validate_instruction_file(json_file)
+        except (ValidationError, json.JSONDecodeError) as e:
+            print(f"⚠️ Skipping invalid JSON in {json_file.name}: {e}")
+            continue
 
-            # Guarantee action and id fields
-            if not instruction.get("action"):
-                print(f"⚠️ Skipping {json_file.name}: missing 'action' field")
-                continue
-            if not instruction.get("id"):
-                instruction["id"] = json_file.stem
+        instructions.append(instr)
+        print(f"✅ Loaded {instr['id']} — {instr['action']}")
 
-            instructions.append(instruction)
-            print(f"✅ Loaded instruction: {instruction['id']} - {instruction['action']}")
-            
-        except json.JSONDecodeError as e:
-            print(f"❌ Error parsing {json_file.name}: {e}")
-        except Exception as e:
-            print(f"❌ Error loading {json_file.name}: {e}")
-    
     return instructions
 
 def run_instruction(instruction: dict) -> dict:
