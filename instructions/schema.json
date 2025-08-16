@@ -10,4 +10,12 @@
   }
 }
 
+"priority": {
+  "type": "string",
+  "enum": ["low", "medium", "high"]
+},
+"risk": {
+  "type": "string",
+  "enum": ["safe", "review", "critical"]
+}
 
