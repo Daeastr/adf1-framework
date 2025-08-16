@@ -3,3 +3,27 @@
   with:
     name: orchestrator-step-logs
     path: orchestrator_artifacts/
+
+- name: Add labels based on priority/risk
+  if: github.event_name == 'pull_request'
+  uses: actions/github-script@v7
+  with:
+    script: |
+      const fs = require('fs');
+      const instrPath = 'instructions/demo.json'; // or aggregate validated file(s)
+      const instr = JSON.parse(fs.readFileSync(instrPath, 'utf8'));
+      /** Map metadata → label text **/
+      const labels = [];
+      if (instr.priority) labels.push(`priority: ${instr.priority}`);
+      if (instr.risk)     labels.push(`risk: ${instr.risk}`);
+      if (labels.length) {
+        console.log(`Adding labels: ${labels.join(', ')}`);
+        await github.rest.issues.addLabels({
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          issue_number: context.issue.number,
+          labels
+        });
+      } else {
+        console.log("No priority/risk found — skipping auto‑label.");
+      }
