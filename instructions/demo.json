@@ -1,7 +1,10 @@
 {
   "id": "demo-003",
-  "action": "apply_patch",
-  "params": {},
+  "action": "replace",
+  "params": {
+    "target": "core/module.py",
+    "patch": "def new_logic(): pass"
+  },
   "priority": "high",
   "risk": "review",
   "capabilities": ["FILE_IO"],
