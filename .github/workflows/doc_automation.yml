@@ -10,9 +10,8 @@
   with:
     script: |
       const fs = require('fs');
-      const instrPath = 'instructions/demo.json'; // or aggregate validated file(s)
+      const instrPath = 'instructions/demo.json'; // Adjust if using multiple files
       const instr = JSON.parse(fs.readFileSync(instrPath, 'utf8'));
-      /** Map metadata → label text **/
       const labels = [];
       if (instr.priority) labels.push(`priority: ${instr.priority}`);
       if (instr.risk)     labels.push(`risk: ${instr.risk}`);
