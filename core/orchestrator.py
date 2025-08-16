@@ -1,32 +1,21 @@
 # core/orchestrator.py
 import json
 import subprocess
+import sys
 from pathlib import Path
+
+# Add project root to Python path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
 from core.validator import validate_instruction_file, ValidationError
 
 # Define paths
 ACTION_MAP_PATH = Path("tests/action_map.json")
 
 def get_tests_for_actions(actions: list[str]) -> list[str]:
-    """
-    Get test files for given actions from action map.
-    
-    Args:
-        actions: List of action names to get tests for
-        
-    Returns:
-        Sorted list of unique test files
-    """
-    try:
-        with open(ACTION_MAP_PATH, "r", encoding="utf-8") as f:
-            action_map = json.load(f)
-    except FileNotFoundError:
-        print(f"⚠️ Action map file not found: {ACTION_MAP_PATH}")
-        return []
-    except json.JSONDecodeError as e:
-        print(f"⚠️ Invalid JSON in action map: {e}")
-        return []
-    
+    with open(ACTION_MAP_PATH, "r", encoding="utf-8") as f:
+        action_map = json.load(f)
     test_files = []
     for action in actions:
         test_files.extend(action_map.get(action, []))
