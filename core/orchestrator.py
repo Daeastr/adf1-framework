@@ -13,37 +13,21 @@ INSTR_DIR = Path(__file__).parent.parent / "instructions"
 # Files to skip when parsing instructions
 SKIP_FILES = {"schema.json"}  # explicit skip list
 
-def is_valid_instruction_file(filepath: Path) -> bool:
-    """Check if a JSON file is a valid instruction file."""
-    if filepath.name in SKIP_FILES:
-        return False
-    
-    try:
-        with filepath.open(encoding="utf-8") as fh:
-            data = json.load(fh)
-        
-        # Must be a dict with both 'id' and 'action' keys
-        return (isinstance(data, dict) and 
-                "id" in data and 
-                "action" in data and
-                data["action"])  # action must not be empty
-    except Exception:
-        return False
-
-def collect_actions_safe():
-    """Yield unique action values from valid single‑object instruction files."""
-    actions = set()
-    for f in INSTR_DIR.glob("*.json"):
-        if is_valid_instruction_file(f):
-            try:
-                with f.open(encoding="utf-8") as fh:
-                    data = json.load(fh)
-                actions.add(data["action"])
-            except Exception as e:
-                print(f"⚠️ Error reading {f.name}: {e}")
-    return sorted(actions)
+def gather_actions_from_valid_instructions() -> list[str]:
+    """Load only valid instruction files and collect their action fields."""
+    actions = []
+    for json_file in INSTRUCTIONS_DIR.glob("*.json"):
+        try:
+            instr = validate_instruction_file(json_file)
+        except (ValidationError, json.JSONDecodeError):
+            print(f"ℹ️ Skipping non‑instruction or invalid JSON: {json_file.name}")
+            continue
+        if "action" in instr:
+            actions.append(instr["action"])
+    return actions
 
 def get_tests_for_actions(actions: list[str]) -> list[str]:
+    """Return unique list of test files for the given actions."""
     try:
         with open(ACTION_MAP_PATH, "r", encoding="utf-8") as f:
             action_map = json.load(f)
@@ -202,6 +186,11 @@ def run_tests_and_execute():
 #     subprocess.run(["pytest"])
 
 if __name__ == "__main__":
-    valid_actions = collect_actions_safe()
-    if valid_actions:
-        run_mapped_tests([{"action": a} for a in valid_actions])
+    valid_actions = gather_actions_from_valid_instructions()
+    test_files = get_tests_for_actions(valid_actions)
+    if test_files:
+        print(f"🎯 Running mapped tests: {test_files}")
+        subprocess.run(["pytest", *test_files])
+    else:
+        print("⚠️ No mapped tests found — running full suite")
+        subprocess.run(["pytest"])
