@@ -1,0 +1,6 @@
+{
+  "noop": ["tests/test_readme.py"],
+  "create_endpoint": ["tests/test_api.py", "tests/test_security.py"],
+  "transform": ["tests/test_docs.py"],
+  "apply_patch": ["tests/test_cart.py"]
+}
