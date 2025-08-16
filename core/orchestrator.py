@@ -1,6 +1,7 @@
 from pathlib import Path
 import json
 import subprocess
+from core.agent_registry import select_agent_for_step
 
 ACTION_MAP_PATH = Path("tests/action_map.json")
 
@@ -26,9 +27,13 @@ def normalize_step_capabilities(step: dict) -> None:
 
 def run_mapped_tests(all_valid_steps: list[dict]) -> None:
     """Run only mapped tests based on step actions."""
-    # Normalize capabilities for all steps
+    # Normalize capabilities and assign agents for all steps
     for step in all_valid_steps:
         normalize_step_capabilities(step)
+        
+        # Agent selection based on capabilities
+        capabilities = step.get("capabilities", [])
+        step["_agent"] = select_agent_for_step(capabilities)
     
     # Extract actions from all valid steps
     actions = [step["action"] for step in all_valid_steps]

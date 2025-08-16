@@ -19,6 +19,10 @@ def render_step_summary(step: Dict[str, Any]) -> str:
     if capabilities:
         lines.append(f"🔐 **Capabilities**: {', '.join(capabilities)}")
 
+    # Agent assignment
+    agent = step.get("_agent", "UnknownAgent")
+    lines.append(f"🤖 **Agent**: `{agent}`")
+
     # Existing output/logs
     if "duration_sec" in step:
         lines.append(f"⏱ Duration: {step['duration_sec']}s")
