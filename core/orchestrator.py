@@ -7,6 +7,20 @@ from core.execute import run_agent_task  # import your upgraded executor
 
 ACTION_MAP_PATH = Path("tests/action_map.json")
 INSTRUCTIONS_DIR = Path(__file__).parent.parent / "instructions"
+INSTR_DIR = Path(__file__).parent.parent / "instructions"
+
+def collect_actions_safe():
+    """Yield unique action values from valid single‑object instruction files."""
+    actions = set()
+    for f in INSTR_DIR.glob("*.json"):
+        try:
+            with f.open(encoding="utf-8") as fh:
+                data = json.load(fh)
+            if isinstance(data, dict) and "id" in data and "action" in data:
+                actions.add(data["action"])
+        except Exception as e:
+            print(f"Skipping invalid JSON in {f.name}")
+    return sorted(actions)
 
 def get_tests_for_actions(actions: list[str]) -> list[str]:
     with open(ACTION_MAP_PATH, "r", encoding="utf-8") as f:
@@ -169,4 +183,6 @@ def run_tests_and_execute():
 #     subprocess.run(["pytest"])
 
 if __name__ == "__main__":
-    run_all_validated()
+    valid_actions = collect_actions_safe()
+    if valid_actions:
+        run_mapped_tests([{"action": a} for a in valid_actions])

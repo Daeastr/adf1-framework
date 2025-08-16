@@ -1,17 +1,7 @@
 {
-  "id": "demo-003",
-  "action": "replace",
-  "params": {
-    "target": "core/module.py",
-    "patch": "def new_logic(): pass"
-  },
-  "priority": "high",
-  "risk": "review",
-  "capabilities": ["FILE_IO"],
-  "sandbox": {
-    "image": "python:3.11",
-    "cpu": "2",
-    "memory": "4Gi",
-    "network": false
-  }
+  "id": "demo-000",
+  "action": "noop",
+  "params": {},
+  "priority": "low",
+  "risk": "safe"
 }
