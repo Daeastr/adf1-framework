@@ -14,60 +14,6 @@
     "risk": {
       "type": "string",
       "enum": ["safe", "review", "critical"]
-    },
-    "capabilities": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "enum": ["FILE_IO", "NETWORK", "SECURITY", "QUESTION_ANSWERING", "SANITIZATION"]
-      }
-    },
-    "sandbox": {
-      "type": "object",
-      "properties": {
-        "image": { "type": "string" },
-        "cpu": { "type": "string" },
-        "memory": { "type": "string" },
-        "network": { "type": "boolean" }
-      },
-      "required": ["image"]
-    },
-    "steps": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["id", "action", "priority", "risk"],
-        "properties": {
-          "id": { "type": "string" },
-          "action": { "type": "string" },
-          "params": { "type": "object" },
-          "priority": {
-            "type": "string",
-            "enum": ["low", "medium", "high"]
-          },
-          "risk": {
-            "type": "string",
-            "enum": ["safe", "review", "critical"]
-          },
-          "capabilities": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "enum": ["FILE_IO", "NETWORK", "SECURITY", "QUESTION_ANSWERING", "SANITIZATION"]
-            }
-          },
-          "duration_sec": {
-            "type": "number",
-            "description": "Duration of step execution in seconds"
-          },
-          "log_file": {
-            "type": "string",
-            "description": "Path to log file for this step"
-          }
-        }
-      },
-      "description": "Array of steps within this instruction"
     }
-  },
-  "additionalProperties": false
+  }
 }
