@@ -2,6 +2,7 @@ from pathlib import Path
 import json
 import subprocess
 from core.agent_registry import select_agent_for_step
+from core.sandbox_runner import run_in_sandbox
 
 ACTION_MAP_PATH = Path("tests/action_map.json")
 
@@ -12,6 +13,19 @@ def get_tests_for_actions(actions: list[str]) -> list[str]:
     for action in actions:
         test_files.extend(action_map.get(action, []))
     return sorted(set(test_files))
+
+def run_instruction(instruction: dict) -> dict:
+    if instruction.get("sandbox"):
+        return run_in_sandbox(instruction)
+    else:
+        return run_normally(instruction)
+
+def run_normally(instruction: dict) -> dict:
+    print(f"[normal] Executing: {instruction['action']}")
+    return {
+        "status": "normal",
+        "output": None
+    }
 
 # After parsing instructions
 # actions = [step["action"] for step in all_valid_steps]
