@@ -63,25 +63,22 @@ def load_all_instructions():
         return instructions
     
     for json_file in INSTRUCTIONS_DIR.glob("*.json"):
-        # Skip non-instruction files
+        # Skip anything that's not a valid instruction
         if not is_valid_instruction_file(json_file):
-            if json_file.name not in SKIP_FILES:
-                print(f"⚠️ Skipping invalid instruction file: {json_file.name}")
+            print(f"ℹ️ Skipping non‑instruction file: {json_file.name}")
             continue
-        
+
         try:
             with open(json_file, "r", encoding="utf-8") as f:
                 instruction = json.load(f)
-            
-            # Basic validation (redundant but kept for safety)
+
+            # Guarantee action and id fields
             if not instruction.get("action"):
                 print(f"⚠️ Skipping {json_file.name}: missing 'action' field")
                 continue
-            
-            # Ensure ID exists
             if not instruction.get("id"):
                 instruction["id"] = json_file.stem
-            
+
             instructions.append(instruction)
             print(f"✅ Loaded instruction: {instruction['id']} - {instruction['action']}")
             
