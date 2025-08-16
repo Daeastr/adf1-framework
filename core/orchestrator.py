@@ -27,7 +27,7 @@ def gather_actions_from_valid_instructions() -> list[str]:
     return actions
 
 def get_tests_for_actions(actions: list[str]) -> list[str]:
-    """Return unique list of test files for the given actions."""
+    """Map action names to their test files."""
     try:
         with open(ACTION_MAP_PATH, "r", encoding="utf-8") as f:
             action_map = json.load(f)
@@ -37,6 +37,7 @@ def get_tests_for_actions(actions: list[str]) -> list[str]:
     
     test_files = []
     for action in actions:
+        # Collect mapped tests, ignore unmapped actions
         test_files.extend(action_map.get(action, []))
     return sorted(set(test_files))
 
@@ -186,11 +187,17 @@ def run_tests_and_execute():
 #     subprocess.run(["pytest"])
 
 if __name__ == "__main__":
-    valid_actions = gather_actions_from_valid_instructions()
-    test_files = get_tests_for_actions(valid_actions)
+    valid_instrs = load_all_instructions()  # <- already skips bad JSON
+    if not valid_instrs:
+        print("No valid instructions found.")
+        raise SystemExit(0)
+
+    actions = [step["action"] for step in valid_instrs if "action" in step]
+    test_files = get_tests_for_actions(actions)
+
     if test_files:
         print(f"🎯 Running mapped tests: {test_files}")
-        subprocess.run(["pytest", *test_files])
+        subprocess.run(["pytest", *test_files], check=False)
     else:
         print("⚠️ No mapped tests found — running full suite")
-        subprocess.run(["pytest"])
+        subprocess.run(["pytest"], check=False)
