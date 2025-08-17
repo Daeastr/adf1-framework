@@ -1,538 +1,284 @@
-// extension.ts
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as cp from 'child_process';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 
-export function activate(context: vscode.ExtensionContext) {
-    const root = vscode.workspace.rootPath || '';
-    const cwd = vscode.workspace.workspaceFolders?.[0].uri.fsPath ?? "";
-    
-    // Initialize providers
-    const artifactsPath = path.join(root, 'orchestrator_artifacts');
-    const statePath = path.join(root, 'orchestrator_state.json');
-    const logsProvider = new LogsProvider(artifactsPath, statePath);
-    const planProvider = new PlanProvider(cwd);
-    
-    // Register tree data providers
-    const logsTreeView = vscode.window.createTreeView('aadfStepLogs', { 
-        treeDataProvider: logsProvider,
-        canSelectMany: true 
-    });
-    const planTreeView = vscode.window.createTreeView('aadfPlanTree', { 
-        treeDataProvider: planProvider,
-        canSelectMany: true 
-    });
-    
-    // Register log commands
-    context.subscriptions.push(
-        vscode.commands.registerCommand('aadfLogs.openLog', (filepath: string) => {
-            vscode.workspace.openTextDocument(filepath).then(doc => {
-                vscode.window.showTextDocument(doc, { preview: false });
-            });
-        }),
-        vscode.commands.registerCommand('aadfLogs.refresh', () => {
-            logsProvider.refresh();
-        }),
-        // Enhanced multi-log tailing using tree selection
-        vscode.commands.registerCommand('aadfLogs.tailMultipleLogs', async (arg?: any) => {
-            // Prefer explicit selection from the tree view
-            const selectedLogs = logsTreeView.selection?.length ? logsTreeView.selection : (arg ? [arg] : []);
-            const logPaths = selectedLogs
-                .map((item: any) => item.filepath)
-                .filter(Boolean) as string[];
+const execAsync = promisify(exec);
 
-            if (!logPaths.length) {
-                vscode.window.showWarningMessage('No log files in selection.');
-                return;
-            }
-
-            const term = vscode.window.createTerminal({ 
-                name: `Logs: ${logPaths.length} files`, 
-                cwd: cwd 
-            });
-            term.show();
-            term.sendText(`.\\venv\\Scripts\\activate && python -m core.orchestrator --follow-log ${logPaths.map(p => `"${p}"`).join(' ')}`);
-        }),
-        // NEW: Color tail command for logs
-        vscode.commands.registerCommand('aadfLogs.tailColoredLogs', async (arg?: any) => {
-            const selectedLogs = logsTreeView.selection?.length ? logsTreeView.selection : (arg ? [arg] : []);
-            const logPaths = selectedLogs
-                .map((item: any) => item.filepath)
-                .filter(Boolean) as string[];
-
-            if (!logPaths.length) {
-                vscode.window.showWarningMessage('No log files selected for colored tailing.');
-                return;
-            }
-
-            const term = vscode.window.createTerminal({ 
-                name: `Logs: colored (${logPaths.length})`, 
-                cwd: cwd 
-            });
-            term.show();
-            term.sendText(`.\\venv\\Scripts\\activate && python -m core.orchestrator --follow-log-colored ${logPaths.map(p => `"${p}"`).join(' ')}`);
-        }),
-    );
-
-    // Register plan preview commands
-    context.subscriptions.push(
-        vscode.commands.registerCommand('aadf.openPlanPreview', async () => {
-            await vscode.commands.executeCommand('workbench.view.explorer');
-            try {
-                await vscode.commands.executeCommand('workbench.views.focus', 'aadfStepLogs');
-            } catch {
-                // Some VS Code versions may not support workbench.views.focus; ignore failures
-            }
-            vscode.window.showInformationMessage('AADF: Plan Preview opened in Explorer (look for Plan Preview).');
-        }),
-        vscode.commands.registerCommand('aadf.showPlanPreview', () => {
-            planProvider.refresh();
-            showPlanPreview(context);
-        })
-    );
-
-    // Register doc automation command
-    context.subscriptions.push(
-        vscode.commands.registerCommand('aadf.runDocAutomation', async () => {
-            const fileUri = await vscode.window.showOpenDialog({
-                canSelectMany: false,
-                openLabel: 'Select Instruction File',
-                filters: { 'JSON/YAML': ['json', 'yml', 'yaml'] }
-            });
-            if (!fileUri || fileUri.length === 0) { return; }
-
-            const filePath = fileUri[0].fsPath;
-            const workspaceCwd = vscode.workspace.workspaceFolders?.[0].uri.fsPath ?? path.dirname(filePath);
-
-            const term = vscode.window.createTerminal({ name: 'AADF Orchestrator', cwd: workspaceCwd });
-            term.show();
-            term.sendText(`.\\venv\\Scripts\\activate && python -m core.orchestrator "${filePath}"`);
-        })
-    );
-
-    // Register step log viewing and tailing commands
-    context.subscriptions.push(
-        vscode.commands.registerCommand('aadf.viewStepLog', async (step: any) => {
-            if (!step.log_file) {
-                return vscode.window.showWarningMessage(`No log found for step ${step.id}`);
-            }
-            const logUri = vscode.Uri.file(step.log_file);
-            const doc = await vscode.workspace.openTextDocument(logUri);
-            await vscode.window.showTextDocument(doc, { preview: false });
-        }),
-        
-        // Enhanced Tail Log command - now supports multiple steps using selection
-        vscode.commands.registerCommand('aadf.tailStepLog', (step: any) => {
-            if (!step.log_file) {
-                vscode.window.showWarningMessage(`No log file for step ${step.id}`);
-                return;
-            }
-            const term = vscode.window.createTerminal({ 
-                name: `Log: ${step.id}`, 
-                cwd: cwd 
-            });
-            term.show();
-            term.sendText(`.\\venv\\Scripts\\activate && python -m core.orchestrator --follow-log "${step.log_file}"`);
-        }),
-
-        // Multi-tail command that uses current tree selection
-        vscode.commands.registerCommand('aadf.tailMultipleStepLogs', async (arg?: any) => {
-            // Prefer explicit selection from the tree view
-            const selectedSteps = planTreeView.selection?.length ? planTreeView.selection : (arg ? [arg] : []);
-            const logs = selectedSteps
-                .map((s: any) => s.stepData?.log_file)
-                .filter(Boolean) as string[];
-
-            if (!logs.length) {
-                vscode.window.showWarningMessage('No log files in selection.');
-                return;
-            }
-
-            const term = vscode.window.createTerminal({ 
-                name: `Logs: ${logs.length} steps`, 
-                cwd: cwd 
-            });
-            term.show();
-            term.sendText(`.\\venv\\Scripts\\activate && python -m core.orchestrator --follow-log ${logs.map(l => `"${l}"`).join(' ')}`);
-        }),
-
-        // NEW: Colored tail for step logs
-        vscode.commands.registerCommand('aadf.tailColoredStepLogs', async (arg?: any) => {
-            const selectedSteps = planTreeView.selection?.length ? planTreeView.selection : (arg ? [arg] : []);
-            const logs = selectedSteps
-                .map((s: any) => s.stepData?.log_file)
-                .filter(Boolean) as string[];
-
-            if (!logs.length) {
-                vscode.window.showWarningMessage('No log files in selection for colored tailing.');
-                return;
-            }
-
-            const term = vscode.window.createTerminal({ 
-                name: `Logs: colored (${logs.length})`, 
-                cwd: cwd 
-            });
-            term.show();
-            term.sendText(`.\\venv\\Scripts\\activate && python -m core.orchestrator --follow-log-colored ${logs.map(l => `"${l}"`).join(' ')}`);
-        }),
-        
-        // Keep the run step command for when logs don't exist
-        vscode.commands.registerCommand('aadf.runStep', async (step: any) => {
-            const stepId = step.id;
-            const term = vscode.window.createTerminal({ 
-                name: `Run ${stepId}`, 
-                cwd: cwd 
-            });
-            term.show();
-            term.sendText(`.\\venv\\Scripts\\activate && python -m core.orchestrator --step-id ${stepId}`);
-        }),
-
-        // Run multiple selected steps
-        vscode.commands.registerCommand('aadf.runMultipleSteps', async (selectedSteps: any[]) => {
-            if (selectedSteps.length === 0) {
-                vscode.window.showWarningMessage('No steps selected to run');
-                return;
-            }
-            
-            const stepIds = selectedSteps.map(step => step.id);
-            const term = vscode.window.createTerminal({ 
-                name: `Multi-Run (${stepIds.length})`, 
-                cwd: cwd 
-            });
-            term.show();
-            
-            // Run each step sequentially
-            for (const stepId of stepIds) {
-                term.sendText(`python -m core.orchestrator --step-id ${stepId}`);
-            }
-        }),
-
-        // Enhanced filtered logs command with color support
-        vscode.commands.registerCommand('aadf.tailFilteredLogs', async (arg?: any) => {
-            const selectedSteps = planTreeView.selection?.length ? planTreeView.selection : (arg ? [arg] : []);
-            const logs = selectedSteps
-                .filter((s: any) => !!s.stepData?.log_file)
-                .map((s: any) => `"${s.stepData.log_file}"`);
-
-            if (!logs.length) {
-                vscode.window.showWarningMessage('No log files in selection for filtering.');
-                return;
-            }
-
-            const levels = await vscode.window.showQuickPick(
-                ['ERROR', 'WARN', 'INFO', 'DEBUG'],
-                { canPickMany: true, placeHolder: 'Select log levels to include' }
-            );
-            if (!levels || !levels.length) { return; }
-
-            // Ask if user wants colored output
-            const useColor = await vscode.window.showQuickPick(
-                ['Yes', 'No'],
-                { placeHolder: 'Use colored output?' }
-            );
-
-            const colorFlag = useColor === 'Yes' ? '--follow-log-colored' : '--follow-log';
-            const term = vscode.window.createTerminal({ 
-                name: `Logs: filtered ${useColor === 'Yes' ? '(colored)' : ''}`, 
-                cwd: cwd 
-            });
-            term.show();
-            term.sendText(
-                `.\\venv\\Scripts\\activate && python -m core.orchestrator ${colorFlag} ${logs.join(" ")} --levels ${levels.join(" ")}`
-            );
-        })
-    );
-
-    // Create status bar item for plan preview
-    const previewButton = vscode.window.createStatusBarItem(
-        vscode.StatusBarAlignment.Left,
-        100
-    );
-    previewButton.command = 'aadf.showPlanPreview';
-    previewButton.text = '$(preview) Plan Preview';
-    previewButton.tooltip = 'Open AADF Plan Preview Panel';
-    previewButton.show();
-
-    context.subscriptions.push(previewButton);
-
-    // Auto-restore if user had the panel open last time
-    const wasOpen = context.globalState.get('aadfPreviewOpen');
-    if (wasOpen) {
-        showPlanPreview(context);
-    }
+interface PlanStep {
+    id: string;
+    action: string;
+    status?: string;
+    agent?: string;
+    capabilities?: string[];
+    duration_sec?: number;
+    log_file?: string;
+    error?: string;
 }
 
-// Enhanced LogItem class for log files with multi-select support
-class LogItem extends vscode.TreeItem {
-    constructor(
-        public readonly label: string,
-        public readonly filepath: string,
-        public readonly passed?: boolean
-    ) {
-        super(label);
-        this.command = {
-            command: 'aadfLogs.openLog',
-            title: 'Open Log',
-            arguments: [this.filepath]
-        };
-        
-        // Set icon based on pass/fail state
-        if (passed === true) {
-            this.iconPath = new vscode.ThemeIcon('check', new vscode.ThemeColor('testing.iconPassed'));
-        } else if (passed === false) {
-            this.iconPath = new vscode.ThemeIcon('error', new vscode.ThemeColor('testing.iconFailed'));
-        } else {
-            this.iconPath = new vscode.ThemeIcon('question');
-        }
-        
-        // Add context value for right-click menus
-        this.contextValue = 'logFile';
-        
-        this.tooltip = `Log file: ${path.basename(filepath)}`;
-        this.description = this.getLogDescription(filepath);
-    }
-    
-    private getLogDescription(filepath: string): string {
-        try {
-            const stats = fs.statSync(filepath);
-            const date = stats.mtime.toLocaleString();
-            const size = (stats.size / 1024).toFixed(1) + 'KB';
-            return `${size} • ${date}`;
-        } catch {
-            return '';
-        }
-    }
+interface ExecutionSummary {
+    summary: {
+        total_steps: number;
+        successful: number;
+        failed: number;
+        total_duration_sec: number;
+    };
+    steps: PlanStep[];
 }
 
-// Enhanced LogsProvider class with multi-select support
-class LogsProvider implements vscode.TreeDataProvider<LogItem> {
-    private _onDidChangeTreeData = new vscode.EventEmitter<LogItem | undefined>();
-    readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
-    private stepResults: Record<string, boolean> = {};
+class PlanPreviewProvider implements vscode.TreeDataProvider<PlanStep> {
+    private _onDidChangeTreeData: vscode.EventEmitter<PlanStep | undefined | null | void> = new vscode.EventEmitter<PlanStep | undefined | null | void>();
+    readonly onDidChangeTreeData: vscode.Event<PlanStep | undefined | null | void> = this._onDidChangeTreeData.event;
 
-    constructor(private artifactsDir: string, private stateFile: string) {
-        this.loadState();
-    }
+    private planData: PlanStep[] = [];
 
-    private loadState() {
-        try {
-            const raw = fs.readFileSync(this.stateFile, 'utf8');
-            const state = JSON.parse(raw);
-            for (const step of state.steps || []) {
-                this.stepResults[`${step.id}_step${step.index}`] = (step.status === 'passed');
-            }
-        } catch (err) {
-            console.warn('No state file or invalid format', err);
-        }
+    constructor() {
+        this.loadPlanData();
     }
 
     refresh(): void {
-        this.loadState();
-        this._onDidChangeTreeData.fire(undefined);
+        this.loadPlanData();
+        this._onDidChangeTreeData.fire();
     }
 
-    getChildren(): Thenable<LogItem[]> {
-        if (!fs.existsSync(this.artifactsDir)) {
-            return Promise.resolve([]);
-        }
-        const files = fs.readdirSync(this.artifactsDir).filter(f => f.endsWith('.log'));
-        return Promise.resolve(
-            files.map(f => {
-                const key = f.replace('.log', '');
-                return new LogItem(f, path.join(this.artifactsDir, f), this.stepResults[key]);
-            })
+    getTreeItem(element: PlanStep): vscode.TreeItem {
+        const item = new vscode.TreeItem(
+            `${element.id} - ${element.action}`,
+            vscode.TreeItemCollapsibleState.None
         );
+        
+        // Status-based icons and colors
+        if (element.status === 'completed') {
+            item.iconPath = new vscode.ThemeIcon('check', new vscode.ThemeColor('charts.green'));
+            item.description = `✅ ${element.duration_sec?.toFixed(2)}s`;
+        } else if (element.status === 'failed') {
+            item.iconPath = new vscode.ThemeIcon('error', new vscode.ThemeColor('charts.red'));
+            item.description = `❌ ${element.error || 'Failed'}`;
+        } else {
+            item.iconPath = new vscode.ThemeIcon('clock', new vscode.ThemeColor('charts.yellow'));
+            item.description = `⏳ ${element.agent || 'Pending'}`;
+        }
+
+        // Set context value for menu contributions
+        item.contextValue = 'planStep';
+
+        // Add tooltip with more details
+        item.tooltip = new vscode.MarkdownString();
+        item.tooltip.appendMarkdown(`**${element.id}**\n\n`);
+        item.tooltip.appendMarkdown(`Action: ${element.action}\n\n`);
+        item.tooltip.appendMarkdown(`Agent: ${element.agent || 'Not assigned'}\n\n`);
+        if (element.capabilities && element.capabilities.length > 0) {
+            item.tooltip.appendMarkdown(`Capabilities: ${element.capabilities.join(', ')}\n\n`);
+        }
+        if (element.status) {
+            item.tooltip.appendMarkdown(`Status: ${element.status}\n\n`);
+        }
+        if (element.duration_sec) {
+            item.tooltip.appendMarkdown(`Duration: ${element.duration_sec.toFixed(2)}s\n\n`);
+        }
+        if (element.log_file) {
+            item.tooltip.appendMarkdown(`Log: ${element.log_file}\n\n`);
+        }
+
+        return item;
     }
 
-    getTreeItem(element: LogItem): vscode.TreeItem {
-        return element;
-    }
-}
-
-// Enhanced PlanProvider class with multi-select support
-class PlanProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
-    private _onDidChangeTreeData = new vscode.EventEmitter<void>();
-    readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
-    
-    constructor(private cwd: string) {}
-
-    refresh(): void { 
-        this._onDidChangeTreeData.fire(); 
+    getChildren(element?: PlanStep): Thenable<PlanStep[]> {
+        if (!element) {
+            return Promise.resolve(this.planData);
+        }
+        return Promise.resolve([]);
     }
 
-    getTreeItem(element: vscode.TreeItem): vscode.TreeItem { 
-        return element; 
-    }
-
-    getChildren(): vscode.ProviderResult<vscode.TreeItem[]> {
-        const parseScript = `.\\venv\\Scripts\\activate && python -m core.orchestrator --parse-only`;
+    private async loadPlanData(): Promise<void> {
         try {
-            const output = cp.execSync(parseScript, { 
-                cwd: this.cwd, 
-                shell: "powershell.exe",
-                timeout: 10000
-            }).toString();
-            
-            const plan = JSON.parse(output);
-            return plan.map((step: any) => {
-                const item = new vscode.TreeItem(
-                    `${step.id} — ${step.action}`,
-                    vscode.TreeItemCollapsibleState.None
-                );
-                item.description = `P:${step.priority || 'N/A'} R:${step.risk || 'N/A'}`;
-                item.tooltip = `Action: ${step.action}\nPriority: ${step.priority || 'N/A'}\nRisk: ${step.risk || 'N/A'}\n\nClick to view step log`;
-                
-                // Add command to view the step log when clicked
-                item.command = {
-                    command: 'aadf.viewStepLog',
-                    title: 'View Step Log',
-                    arguments: [step]
-                };
-                
-                // Add context value for right-click menus with multi-select support
-                item.contextValue = 'planStep';
-                
-                // Store step data for multi-select operations and selection access
-                (item as any).stepData = step;
-                (item as any).log_file = step.log_file; // Direct access for selection filtering
-                
-                return item;
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            if (!workspaceFolder) {
+                this.planData = [];
+                return;
+            }
+
+            const { stdout } = await execAsync('python -m core.orchestrator --parse-only', {
+                cwd: workspaceFolder.uri.fsPath
             });
-        } catch (err) {
-            console.error('Failed to parse plan:', err);
-            vscode.window.showErrorMessage(`Failed to load plan preview: ${err}`);
-            return [new vscode.TreeItem('Error loading plan', vscode.TreeItemCollapsibleState.None)];
+
+            const parsed = JSON.parse(stdout.trim());
+            this.planData = Array.isArray(parsed) ? parsed : [];
+            
+        } catch (error) {
+            console.error('Failed to load plan data:', error);
+            this.planData = [];
+            vscode.window.showErrorMessage('Failed to load AADF plan data');
         }
     }
-}
 
-// WebView panel for plan preview
-function showPlanPreview(context: vscode.ExtensionContext) {
-    const panel = vscode.window.createWebviewPanel(
-        'aadfPlanPreview',
-        'AADF Plan Preview',
-        vscode.ViewColumn.Two,
-        { enableScripts: true, retainContextWhenHidden: true }
-    );
-    
-    panel.webview.html = renderPlanHtml();
-
-    panel.onDidDispose(() => {
-        context.globalState.update('aadfPreviewOpen', false);
-    });
-    context.globalState.update('aadfPreviewOpen', true);
-}
-
-function renderPlanHtml(): string {
-    const cwd = vscode.workspace.workspaceFolders?.[0].uri.fsPath ?? "";
-    const parseScript = `.\\venv\\Scripts\\activate && python -m core.orchestrator --parse-only`;
-    
-    try {
-        const output = cp.execSync(parseScript, { 
-            cwd: cwd, 
-            shell: "powershell.exe",
-            timeout: 10000
-        }).toString();
-        
-        const plan = JSON.parse(output);
-        
-        const planItems = plan.map((step: any) => `
-            <div class="plan-item">
-                <h3>${step.id} — ${step.action}</h3>
-                <div class="plan-meta">
-                    <span class="priority">Priority: ${step.priority || 'N/A'}</span>
-                    <span class="risk">Risk: ${step.risk || 'N/A'}</span>
-                </div>
-                <div class="plan-description">
-                    ${step.description || 'No description provided'}
-                </div>
-            </div>
-        `).join('');
-        
-        return `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>AADF Plan Preview</title>
-                <style>
-                    body { 
-                        font-family: var(--vscode-font-family);
-                        color: var(--vscode-foreground);
-                        background: var(--vscode-editor-background);
-                        padding: 20px; 
-                        line-height: 1.6;
-                    }
-                    h1 { 
-                        color: var(--vscode-titleBar-activeForeground);
-                        border-bottom: 2px solid var(--vscode-panel-border);
-                        padding-bottom: 10px;
-                    }
-                    .plan-item { 
-                        margin: 15px 0; 
-                        padding: 15px; 
-                        border-left: 4px solid var(--vscode-activityBarBadge-background);
-                        background: var(--vscode-editor-inactiveSelectionBackground);
-                        border-radius: 4px;
-                    }
-                    .plan-item h3 {
-                        margin: 0 0 10px 0;
-                        color: var(--vscode-textLink-foreground);
-                    }
-                    .plan-meta {
-                        margin: 8px 0;
-                        font-size: 0.9em;
-                    }
-                    .plan-meta span {
-                        margin-right: 15px;
-                        padding: 2px 8px;
-                        background: var(--vscode-badge-background);
-                        color: var(--vscode-badge-foreground);
-                        border-radius: 3px;
-                    }
-                    .plan-description {
-                        margin-top: 10px;
-                        font-style: italic;
-                        color: var(--vscode-descriptionForeground);
-                    }
-                </style>
-            </head>
-            <body>
-                <h1>🎯 AADF Plan Preview</h1>
-                <p>Total steps: ${plan.length}</p>
-                ${planItems}
-            </body>
-            </html>
-        `;
-    } catch (err) {
-        return `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>AADF Plan Preview - Error</title>
-                <style>
-                    body { 
-                        font-family: var(--vscode-font-family);
-                        color: var(--vscode-errorForeground);
-                        background: var(--vscode-editor-background);
-                        padding: 20px; 
-                    }
-                    .error { 
-                        padding: 15px; 
-                        background: var(--vscode-inputValidation-errorBackground);
-                        border: 1px solid var(--vscode-inputValidation-errorBorder);
-                        border-radius: 4px;
-                    }
-                </style>
-            </head>
-            <body>
-                <h1>❌ Plan Preview Error</h1>
-                <div class="error">
-                    <p>Failed to load plan preview:</p>
-                    <pre>${err}</pre>
-                </div>
-            </body>
-            </html>
-        `;
+    public async updateWithExecutionData(executionSummary: ExecutionSummary): Promise<void> {
+        this.planData = executionSummary.steps;
+        this._onDidChangeTreeData.fire();
     }
+}
+
+export function activate(context: vscode.ExtensionContext) {
+    console.log('AADF Plan Preview extension is now active!');
+
+    // Create the tree data provider
+    const provider = new PlanPreviewProvider();
+    
+    // Register the tree view
+    const treeView = vscode.window.createTreeView('aadfPlanTree', {
+        treeDataProvider: provider,
+        showCollapseAll: true
+    });
+
+    // Register commands
+    const refreshCommand = vscode.commands.registerCommand('aadf.openPlanPreview', () => {
+        provider.refresh();
+        vscode.window.showInformationMessage('AADF Plan Preview refreshed!');
+    });
+
+    const showPreviewCommand = vscode.commands.registerCommand('aadf1.showPlanPreview', () => {
+        vscode.commands.executeCommand('aadfPlanTree.focus');
+    });
+
+    const selectiveRerunCommand = vscode.commands.registerCommand('aadf1.selectiveRerun', async () => {
+        try {
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            if (!workspaceFolder) {
+                vscode.window.showErrorMessage('No workspace folder found');
+                return;
+            }
+
+            vscode.window.showInformationMessage('Running selective tests...');
+            
+            const { stdout } = await execAsync('python -m core.orchestrator --output-execution-json', {
+                cwd: workspaceFolder.uri.fsPath
+            });
+
+            // Parse execution results and update tree view
+            const lines = stdout.split('\n');
+            const jsonLine = lines.find(line => line.includes('"summary"'));
+            
+            if (jsonLine) {
+                const executionSummary: ExecutionSummary = JSON.parse(jsonLine);
+                await provider.updateWithExecutionData(executionSummary);
+                
+                const { summary } = executionSummary;
+                vscode.window.showInformationMessage(
+                    `Execution complete: ${summary.successful}/${summary.total_steps} successful, ${summary.total_duration_sec.toFixed(2)}s total`
+                );
+            }
+            
+        } catch (error) {
+            console.error('Selective rerun failed:', error);
+            vscode.window.showErrorMessage(`Selective rerun failed: ${error}`);
+        }
+    });
+
+    // Register the log alert command - NEW
+    const logAlertCommand = vscode.commands.registerCommand('aadf.showLogAlert', (alertData: string) => {
+        try {
+            // Parse the alert data from the command line format: level?step?message
+            const parts = alertData.split('?');
+            if (parts.length >= 3) {
+                const [level, step, ...messageParts] = parts;
+                const message = messageParts.join('?'); // Rejoin in case message contains '?'
+                
+                if (level === 'error') {
+                    vscode.window.showErrorMessage(`❌ [${step}] ${message}`);
+                } else if (level === 'warn') {
+                    vscode.window.showWarningMessage(`⚠️ [${step}] ${message}`);
+                }
+            } else {
+                console.error('Invalid alert data format:', alertData);
+            }
+        } catch (error) {
+            console.error('Failed to process log alert:', error);
+        }
+    });
+
+    // Register the tail colored logs command for context menu
+    const tailLogsCommand = vscode.commands.registerCommand('aadf.tailColoredLogs', async (step: PlanStep) => {
+        try {
+            if (!step.log_file) {
+                vscode.window.showWarningMessage(`No log file available for step ${step.id}`);
+                return;
+            }
+
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            if (!workspaceFolder) {
+                vscode.window.showErrorMessage('No workspace folder found');
+                return;
+            }
+
+            // Create a new terminal for basic log tailing
+            const terminal = vscode.window.createTerminal({
+                name: `AADF Logs: ${step.id}`,
+                cwd: workspaceFolder.uri.fsPath
+            });
+
+            // Run the basic colored log tailer
+            terminal.sendText(`python -m core.orchestrator --follow-log "${step.log_file}" --levels ERROR WARN INFO`);
+            terminal.show();
+
+        } catch (error) {
+            console.error('Failed to tail logs:', error);
+            vscode.window.showErrorMessage(`Failed to tail logs: ${error}`);
+        }
+    });
+
+    // Register the tail colored logs with alerts command for context menu
+    const tailLogsWithAlertCommand = vscode.commands.registerCommand('aadf.tailColoredLogsWithAlert', async (step: PlanStep) => {
+        try {
+            if (!step.log_file) {
+                vscode.window.showWarningMessage(`No log file available for step ${step.id}`);
+                return;
+            }
+
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            if (!workspaceFolder) {
+                vscode.window.showErrorMessage('No workspace folder found');
+                return;
+            }
+
+            // Create a new terminal for log tailing with alerts
+            const terminal = vscode.window.createTerminal({
+                name: `AADF Logs + Alerts: ${step.id}`,
+                cwd: workspaceFolder.uri.fsPath
+            });
+
+            // Run the enhanced log tailer with the new consolidated flag
+            terminal.sendText(`python -m core.orchestrator --follow-log-colored-alert "${step.log_file}" --levels ERROR WARN INFO`);
+            terminal.show();
+
+            // Show confirmation that alerts are enabled
+            vscode.window.showInformationMessage(`🚨 Alert monitoring enabled for ${step.id} logs`);
+
+        } catch (error) {
+            console.error('Failed to tail logs with alerts:', error);
+            vscode.window.showErrorMessage(`Failed to tail logs with alerts: ${error}`);
+        }
+    });
+
+    // Add all commands to subscriptions
+    context.subscriptions.push(
+        refreshCommand,
+        showPreviewCommand,
+        selectiveRerunCommand,
+        logAlertCommand,
+        tailLogsCommand,
+        tailLogsWithAlertCommand,  // NEW
+        treeView
+    );
+
+    // Auto-refresh on workspace changes
+    const watcher = vscode.workspace.createFileSystemWatcher('**/instructions/*.json');
+    watcher.onDidChange(() => provider.refresh());
+    watcher.onDidCreate(() => provider.refresh());
+    watcher.onDidDelete(() => provider.refresh());
+    context.subscriptions.push(watcher);
+}
+
+export function deactivate() {
+    console.log('AADF Plan Preview extension deactivated');
 }

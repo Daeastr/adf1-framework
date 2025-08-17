@@ -1,4 +1,5 @@
 # core/orchestrator.py
+
 import time
 from pathlib import Path
 import argparse
@@ -27,6 +28,20 @@ STEP_COLORS = cycle([
     "\033[32m",  # green
 ])
 RESET = "\033[0m"
+
+# Alert patterns for severity matching
+ERROR_PATTERN = re.compile(r"^ERROR", re.IGNORECASE)
+WARN_PATTERN = re.compile(r"^WARN", re.IGNORECASE)
+
+def _send_vscode_alert(level: str, step: str, message: str):
+    """Use VS Code's notification via command line (extension side will receive)."""
+    try:
+        subprocess.Popen([
+            "code", "--command",
+            f"aadf.showLogAlert?{level}?{step}?{message}"
+        ])
+    except Exception as e:
+        print(f"[alert-error] {e}")
 
 def tail_logs(paths: list[Path]):
     """Enhanced multi-file log tailing with labeled output"""
@@ -108,6 +123,73 @@ def tail_logs_colored(paths: list[Path], levels: list[str] = None):
                                         color = "\033[90m"  # dark gray
                                     
                                     print(f"{color}[{p.stem}] {line}{RESET}")
+                        last_sizes[p] = size
+                elif last_sizes[p] == 0:
+                    # Only show "waiting" message once per file
+                    color = step_colors[p]
+                    print(f"⏳ {color}[{p.stem}]{RESET} Waiting for log file to be created...")
+                    last_sizes[p] = -1  # Mark as "waiting message shown"
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print(f"\n📋 Log following stopped for {len(paths)} file(s).")
+
+def tail_logs_with_alert(paths: list[Path], levels: list[str] = None):
+    """Enhanced multi-file log tailing with VS Code alert integration"""
+    patterns = None
+    if levels:
+        joined = "|".join([re.escape(lvl.upper()) for lvl in levels])
+        patterns = re.compile(rf"\b({joined})\b", re.IGNORECASE)
+
+    step_colors = {p: next(STEP_COLORS) for p in paths}
+    last_sizes = {p: 0 for p in paths}
+    
+    print(f"📋 Following {len(paths)} log file(s) with alerts:")
+    for p in paths:
+        color = step_colors[p]
+        print(f"  {color}• {p}{RESET}")
+    if levels:
+        print(f"🔍 Filtering for levels: {', '.join(levels)}")
+    print("🚨 VS Code alerts enabled for ERROR/WARN")
+    print("🔄 Streaming updates... (Ctrl+C to stop)")
+    print("-" * 60)
+
+    try:
+        while True:
+            for p in paths:
+                if p.exists():
+                    size = p.stat().st_size
+                    if size > last_sizes[p]:
+                        with open(p, "r", encoding="utf-8") as f:
+                            f.seek(last_sizes[p])
+                            for line in f:
+                                line_stripped = line.strip()
+                                if not line_stripped:
+                                    continue
+                                    
+                                # Apply level filtering if specified
+                                if patterns is None or patterns.search(line_stripped):
+                                    color = step_colors[p]
+                                    alert_type = None
+                                    
+                                    # Check for alert conditions
+                                    if ERROR_PATTERN.match(line_stripped):
+                                        alert_type = "error"
+                                        color = "\033[31m"  # red
+                                    elif WARN_PATTERN.match(line_stripped):
+                                        alert_type = "warn"
+                                        color = "\033[33m"  # yellow
+                                    elif "INFO" in line_stripped.upper():
+                                        color = "\033[37m"  # white/bright
+                                    elif "DEBUG" in line_stripped.upper():
+                                        color = "\033[90m"  # dark gray
+                                    
+                                    # Print as before
+                                    print(f"{color}[{p.stem}] {line_stripped}{RESET}")
+                                    
+                                    # Trigger VS Code alert
+                                    if alert_type:
+                                        _send_vscode_alert(alert_type, p.stem, line_stripped)
+                                        
                         last_sizes[p] = size
                 elif last_sizes[p] == 0:
                     # Only show "waiting" message once per file
@@ -338,6 +420,9 @@ if __name__ == "__main__":
     # New --levels flag for filtering
     parser.add_argument("--levels", nargs="+",
                        help="Filter log output to only show specified levels (ERROR, WARN, INFO, DEBUG)")
+    # New --with-alerts flag for VS Code integration
+    parser.add_argument("--with-alerts", action="store_true",
+                       help="Enable VS Code alerts for ERROR/WARN log entries")
     parser.add_argument("instruction_file", nargs="?", 
                        help="Specific instruction file to execute (optional)")
     
@@ -347,8 +432,11 @@ if __name__ == "__main__":
     if args.follow_log:
         log_paths = [Path(p) for p in args.follow_log]
         
-        # Use colored tailing if levels are specified, otherwise use regular tailing
-        if args.levels:
+        # Use alert-enabled tailing if --with-alerts is specified
+        if args.with_alerts:
+            tail_logs_with_alert(log_paths, args.levels)
+        # Use colored tailing if levels are specified
+        elif args.levels:
             tail_logs_colored(log_paths, args.levels)
         else:
             tail_logs(log_paths)
