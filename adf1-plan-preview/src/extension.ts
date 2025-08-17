@@ -15,6 +15,19 @@ export function activate(context: vscode.ExtensionContext) {
             });
         })
     );
+    context.subscriptions.push(
+        vscode.commands.registerCommand('aadf.openPlanPreview', async () => {
+            // Reveal the view in Explorer
+            await vscode.commands.executeCommand('workbench.view.explorer');
+            // Try to reveal the view container by its id
+            try {
+                await vscode.commands.executeCommand('workbench.views.focus', 'aadfStepLogs');
+            } catch {
+                // Some VS Code versions may not support workbench.views.focus; ignore failures
+            }
+            vscode.window.showInformationMessage('AADF: Plan Preview opened in Explorer (look for Plan Preview).');
+        })
+    );
 }
 
 // LogItem class for log files
@@ -85,7 +98,9 @@ class LogsProvider implements vscode.TreeDataProvider<LogItem> {
     }
 
     getChildren(): Thenable<LogItem[]> {
-        if (!fs.existsSync(this.artifactsDir)) return Promise.resolve([]);
+        if (!fs.existsSync(this.artifactsDir)) {
+            return Promise.resolve([]);
+        }
         const files = fs.readdirSync(this.artifactsDir).filter(f => f.endsWith('.log'));
         return Promise.resolve(
             files.map(f => {
@@ -98,4 +113,31 @@ class LogsProvider implements vscode.TreeDataProvider<LogItem> {
     getTreeItem(element: LogItem): vscode.TreeItem {
         return element;
     }
+}
+export function activate(context: vscode.ExtensionContext) {
+    const disposable = vscode.commands.registerCommand('aadf.openPlanPreview', () => {
+        showPlanPreview(context);
+    });
+    context.subscriptions.push(disposable);
+
+    // Auto‑restore if user had the panel open last time
+    const wasOpen = context.globalState.get('aadfPreviewOpen');
+    if (wasOpen) {
+        showPlanPreview(context);
+    }
+}
+
+function showPlanPreview(context: vscode.ExtensionContext) {
+    const panel = vscode.window.createWebviewPanel(
+        'aadfPlanPreview',
+        'AADF Plan Preview',
+        vscode.ViewColumn.Two,
+        { enableScripts: true, retainContextWhenHidden: true }
+    );
+    panel.webview.html = renderPlanHtml(); // your function to run parse_only and build HTML
+
+    panel.onDidDispose(() => {
+        context.globalState.update('aadfPreviewOpen', false);
+    });
+    context.globalState.update('aadfPreviewOpen', true);
 }
