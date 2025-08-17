@@ -1,4 +1,4 @@
-from pathlib import Path
+# existing code; from pathlib import Path
 import json
 import subprocess
 import argparse
@@ -103,6 +103,22 @@ def normalize_step_capabilities(step: dict) -> None:
     """Normalize step capabilities by ensuring _capabilities key exists."""
     step["_capabilities"] = step.get("capabilities", [])
 
+def create_execution_summary(executed_steps: list[dict]) -> dict:
+    """Create a comprehensive execution summary with log file information."""
+    successful = sum(1 for step in executed_steps if step.get("status") == "completed")
+    failed = len(executed_steps) - successful
+    total_duration = sum(step.get("duration_sec", 0) for step in executed_steps)
+    
+    return {
+        "summary": {
+            "total_steps": len(executed_steps),
+            "successful": successful,
+            "failed": failed,
+            "total_duration_sec": total_duration
+        },
+        "steps": executed_steps
+    }
+
 def run_all_validated():
     """Enhanced function to run all validated instructions with improved executor"""
     valid_instrs = load_all_instructions()
@@ -113,7 +129,7 @@ def run_all_validated():
     
     print(f"🚀 Running {len(valid_instrs)} validated instructions...")
     
-    results = []
+    executed_steps = []
     for step_idx, instr in enumerate(valid_instrs, start=1):
         print(f"\n--- Executing Step {step_idx}/{len(valid_instrs)} ---")
         
@@ -125,37 +141,58 @@ def run_all_validated():
         capabilities = instr.get("capabilities", [])
         instr["_agent"] = select_agent_for_step(capabilities)
         
+        # Create step record with initial information
+        step_record = {
+            "id": instr["id"],
+            "action": instr["action"],
+            "step_index": step_idx,
+            "agent": instr["_agent"],
+            "capabilities": capabilities
+        }
+        
         # Run with enhanced executor
         try:
             result = run_agent_task(instr)
-            results.append(result)
+            
+            # Merge executor result into step record
+            step_record.update({
+                "status": result.get("status", "unknown"),
+                "duration_sec": result.get("duration_sec", 0),
+                "log_file": result.get("log_file"),  # Ensure log_file is captured
+                "output": result.get("output"),
+                "error": result.get("error")
+            })
+            
+            executed_steps.append(step_record)
             
             print(f"✅ [{instr['id']}] Completed in {result['duration_sec']}s")
-            print(f"📄 Log saved at: {result['log_file']}")
+            if result.get("log_file"):
+                print(f"📄 Log saved at: {result['log_file']}")
             
             if result.get("status") == "failed":
                 print(f"⚠️ Task failed: {result.get('error', 'Unknown error')}")
                 
         except Exception as e:
             print(f"❌ [{instr['id']}] Execution failed: {e}")
-            results.append({
+            step_record.update({
                 "status": "failed",
                 "error": str(e),
                 "duration_sec": 0,
                 "log_file": None
             })
+            executed_steps.append(step_record)
     
     # Summary report
     print(f"\n=== Execution Summary ===")
-    successful = sum(1 for r in results if r.get("status") == "completed")
-    failed = len(results) - successful
-    total_duration = sum(r.get("duration_sec", 0) for r in results)
+    successful = sum(1 for step in executed_steps if step.get("status") == "completed")
+    failed = len(executed_steps) - successful
+    total_duration = sum(step.get("duration_sec", 0) for step in executed_steps)
     
     print(f"✅ Successful: {successful}")
     print(f"❌ Failed: {failed}")
     print(f"⏱ Total Duration: {total_duration:.2f}s")
     
-    return results
+    return executed_steps
 
 def run_mapped_tests(all_valid_steps: list[dict]) -> None:
     """Run only mapped tests based on step actions."""
@@ -212,6 +249,8 @@ if __name__ == "__main__":
                        help="Only parse and output instructions as JSON, don't execute")
     parser.add_argument("--step-id", type=str,
                        help="Execute only the step with the specified ID")
+    parser.add_argument("--output-execution-json", action="store_true",
+                       help="Output execution results as JSON for Plan Preview")
     parser.add_argument("instruction_file", nargs="?", 
                        help="Specific instruction file to execute (optional)")
     
@@ -248,14 +287,36 @@ if __name__ == "__main__":
         # Execute the step
         try:
             result = run_agent_task(target_step)
+            
+            # Create step record with log file information
+            step_record = {
+                "id": target_step["id"],
+                "action": target_step["action"],
+                "step_index": 1,
+                "agent": target_step["_agent"],
+                "capabilities": capabilities,
+                "status": result.get("status", "unknown"),
+                "duration_sec": result.get("duration_sec", 0),
+                "log_file": result.get("log_file"),  # Ensure log_file is captured
+                "output": result.get("output"),
+                "error": result.get("error")
+            }
+            
             print(f"✅ [{target_step['id']}] Completed in {result['duration_sec']}s")
-            print(f"📄 Log saved at: {result['log_file']}")
+            if result.get("log_file"):
+                print(f"📄 Log saved at: {result['log_file']}")
             
             if result.get("status") == "failed":
                 print(f"⚠️ Task failed: {result.get('error', 'Unknown error')}")
                 raise SystemExit(1)
             else:
                 print(f"🎉 Step '{args.step_id}' executed successfully!")
+                
+                # Output JSON if requested
+                if args.output_execution_json:
+                    execution_summary = create_execution_summary([step_record])
+                    print("\n" + json.dumps(execution_summary, indent=2))
+                
                 raise SystemExit(0)
                 
         except Exception as e:
@@ -284,4 +345,10 @@ if __name__ == "__main__":
     
     # After tests, execute all validated instructions
     print("\n🚀 Phase 2: Executing all validated instructions...")
-    run_all_validated()
+    executed_steps = run_all_validated()
+    
+    # Output execution results as JSON if requested
+    if args.output_execution_json:
+        execution_summary = create_execution_summary(executed_steps)
+        print("\n=== EXECUTION JSON FOR PLAN PREVIEW ===")
+        print(json.dumps(execution_summary, indent=2))

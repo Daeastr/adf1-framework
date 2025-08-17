@@ -66,61 +66,27 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
-    // Register step execution command
+    // Register step log viewing command
     context.subscriptions.push(
+        vscode.commands.registerCommand('aadf.viewStepLog', async (step: any) => {
+            if (!step.log_file) {
+                return vscode.window.showWarningMessage(`No log found for step ${step.id}`);
+            }
+            const logUri = vscode.Uri.file(step.log_file);
+            const doc = await vscode.workspace.openTextDocument(logUri);
+            await vscode.window.showTextDocument(doc, { preview: false });
+        }),
+        
+        // Keep the run step command for when logs don't exist
         vscode.commands.registerCommand('aadf.runStep', async (step: any) => {
             const stepId = step.id;
-            const stepAction = step.action;
-            
-            // Show confirmation dialog
-            const choice = await vscode.window.showInformationMessage(
-                `Run step "${stepId}" (${stepAction})?`,
-                { modal: true },
-                'Run Step',
-                'Run Mapped Tests Only',
-                'Cancel'
-            );
-
-            if (!choice || choice === 'Cancel') {
-                return;
-            }
-
             const term = vscode.window.createTerminal({ 
-                name: `AADF Step: ${stepId}`, 
+                name: `Run ${stepId}`, 
                 cwd: cwd 
             });
             term.show();
-
-            if (choice === 'Run Mapped Tests Only') {
-                // Run only the mapped tests for this step's action
-                term.sendText(`.\\venv\\Scripts\\activate && python -c "
-import json
-from core.orchestrator import get_tests_for_actions
-tests = get_tests_for_actions(['${stepAction}'])
-if tests:
-    import subprocess
-    subprocess.run(['pytest'] + tests)
-else:
-    print('No mapped tests found for action: ${stepAction}')
-"`);
-            } else {
-                // Run the full step (this would need implementation in orchestrator.py)
-                term.sendText(`.\\venv\\Scripts\\activate && python -c "
-import json
-from core.orchestrator import load_all_instructions, run_agent_task, select_agent_for_step, normalize_step_capabilities
-instrs = load_all_instructions()
-target_step = next((s for s in instrs if s['id'] == '${stepId}'), None)
-if target_step:
-    print('🎯 Running single step: ${stepId}')
-    target_step['_step_index'] = 1
-    normalize_step_capabilities(target_step)
-    target_step['_agent'] = select_agent_for_step(target_step.get('capabilities', []))
-    result = run_agent_task(target_step)
-    print(f'✅ Completed: {result}')
-else:
-    print('❌ Step ${stepId} not found')
-"`);
-            }
+            // Run orchestrator with a --step-id flag to target only this step
+            term.sendText(`.\\venv\\Scripts\\activate && python -m core.orchestrator --step-id ${stepId}`);
         })
     );
 
@@ -259,12 +225,12 @@ class PlanProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
                     vscode.TreeItemCollapsibleState.None
                 );
                 item.description = `P:${step.priority || 'N/A'} R:${step.risk || 'N/A'}`;
-                item.tooltip = `Action: ${step.action}\nPriority: ${step.priority || 'N/A'}\nRisk: ${step.risk || 'N/A'}\n\nClick to run this step`;
+                item.tooltip = `Action: ${step.action}\nPriority: ${step.priority || 'N/A'}\nRisk: ${step.risk || 'N/A'}\n\nClick to view step log`;
                 
-                // Add command to run the step when clicked
+                // Add command to view the step log when clicked
                 item.command = {
-                    command: 'aadf.runStep',
-                    title: 'Run This Step',
+                    command: 'aadf.viewStepLog',
+                    title: 'View Step Log',
                     arguments: [step]
                 };
                 
