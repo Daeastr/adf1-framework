@@ -2,7 +2,7 @@ from pathlib import Path
 import json
 import subprocess
 from core.agent_registry import select_agent_for_step
-from core.sandbox_runner import run_in_sandbox
+import core.sandbox_runner as sandbox_runner
 from core.executor import run_agent_task  # import your upgraded executor
 from core.validator import validate_instruction_file, ValidationError
 
@@ -13,22 +13,21 @@ INSTR_DIR = Path(__file__).parent.parent / "instructions"
 # Files to skip when parsing instructions
 SKIP_FILES = {"schema.json"}  # explicit skip list
 
-def load_valid_instructions() -> list[dict]:
-    """Load only valid instruction JSON files from the instructions folder.
-
-    Skips `schema.json` and any files that cannot be parsed or don't contain
-    the required keys (id, action, params). Returns a list of parsed docs.
-    """
+def load_valid_instructions():
+    """Load only well-formed instruction docs, skip schema/invalid JSONs."""
     valid = []
     for f in INSTR_DIR.glob("*.json"):
-        if f.name == "schema.json":
+        if f.name.lower() == "schema.json":
             continue
         try:
-            doc = json.loads(f.read_text(encoding="utf-8"))
-            if all(k in doc for k in ("id", "action", "params")):
-                valid.append(doc)
+            data = json.loads(f.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             print(f"⚠ Skipping invalid JSON in {f.name}")
+            continue
+        if all(k in data for k in ("id", "action", "params")):
+            valid.append(data)
+        else:
+            print(f"⚠ Skipping non‑instruction file {f.name}")
     return valid
 
 def gather_actions_from_valid_instructions() -> list[str]:
@@ -86,7 +85,8 @@ def load_all_instructions():
 def run_instruction(instruction: dict) -> dict:
     """Legacy instruction runner - maintained for compatibility"""
     if instruction.get("sandbox"):
-        return run_in_sandbox(instruction)
+        # call through the sandbox_runner module so tests can monkeypatch
+        return sandbox_runner.run_in_sandbox(instruction)
     else:
         return run_normally(instruction)
 
@@ -183,17 +183,26 @@ def run_mapped_tests(all_valid_steps: list[dict]) -> None:
 def run_tests_and_execute():
     """Combined function to run tests and then execute validated instructions"""
     print("🧪 Phase 1: Loading and testing instructions...")
-    valid_instrs = load_all_instructions()
-    
-    if valid_instrs:
-        # Run mapped tests first
-        run_mapped_tests(valid_instrs)
-        
-        print("\n🚀 Phase 2: Executing validated instructions...")
-        return run_all_validated()
-    else:
-        print("❌ No valid instructions to test or execute")
+    # For test mapping we use the stricter guard that skips schema and malformed JSON
+    mapping_instrs = load_valid_instructions()
+
+    # Load all instructions for execution (preserve broader loading for runtime)
+    all_instrs = load_all_instructions()
+
+    if not all_instrs:
+        print("❌ No valid instructions to execute")
         return []
+
+    if mapping_instrs:
+        # Run mapped tests only for strictly valid instruction docs
+        run_mapped_tests(mapping_instrs)
+    else:
+        # Fallback to running full suite if no strictly valid mapping documents found
+        print("⚠️ No strictly valid mapping instructions found - running full test suite")
+        subprocess.run(["pytest"])    
+
+    print("\n🚀 Phase 2: Executing validated instructions...")
+    return run_all_validated()
 
 # Legacy comment preserved for reference:
 # After parsing instructions
@@ -205,12 +214,15 @@ def run_tests_and_execute():
 #     subprocess.run(["pytest"])
 
 if __name__ == "__main__":
-    valid_instrs = load_all_instructions()  # <- already skips bad JSON
-    if not valid_instrs:
+    # Use strict loader for mapping, but ensure there are instructions for execution
+    mapping_instrs = load_valid_instructions()
+    all_instrs = load_all_instructions()
+
+    if not all_instrs:
         print("No valid instructions found.")
         raise SystemExit(0)
 
-    actions = [step["action"] for step in valid_instrs if "action" in step]
+    actions = [step["action"] for step in (mapping_instrs or []) if "action" in step]
     test_files = get_tests_for_actions(actions)
 
     if test_files:

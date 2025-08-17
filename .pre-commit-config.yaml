@@ -1,0 +1,7 @@
+- repo: local
+  hooks:
+    - id: sync-action-map
+      name: Sync Action Map & Placeholders
+      entry: python scripts/sync_action_map.py
+      language: system
+      pass_filenames: false
