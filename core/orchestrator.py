@@ -210,6 +210,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="AADF Orchestrator - Execute or parse instruction files")
     parser.add_argument("--parse-only", action="store_true", 
                        help="Only parse and output instructions as JSON, don't execute")
+    parser.add_argument("--step-id", type=str,
+                       help="Execute only the step with the specified ID")
     parser.add_argument("instruction_file", nargs="?", 
                        help="Specific instruction file to execute (optional)")
     
@@ -227,6 +229,38 @@ if __name__ == "__main__":
         # Output clean JSON for VS Code extension
         print(json.dumps(all_instrs, indent=None, separators=(',', ':')))
         exit(0)
+    
+    # If --step-id is provided, execute only that specific step
+    if args.step_id:
+        target_step = next((step for step in all_instrs if step['id'] == args.step_id), None)
+        if not target_step:
+            print(f"❌ Step with ID '{args.step_id}' not found")
+            raise SystemExit(1)
+        
+        print(f"🎯 Executing single step: {args.step_id}")
+        
+        # Prepare the step for execution
+        target_step["_step_index"] = 1
+        normalize_step_capabilities(target_step)
+        capabilities = target_step.get("capabilities", [])
+        target_step["_agent"] = select_agent_for_step(capabilities)
+        
+        # Execute the step
+        try:
+            result = run_agent_task(target_step)
+            print(f"✅ [{target_step['id']}] Completed in {result['duration_sec']}s")
+            print(f"📄 Log saved at: {result['log_file']}")
+            
+            if result.get("status") == "failed":
+                print(f"⚠️ Task failed: {result.get('error', 'Unknown error')}")
+                raise SystemExit(1)
+            else:
+                print(f"🎉 Step '{args.step_id}' executed successfully!")
+                raise SystemExit(0)
+                
+        except Exception as e:
+            print(f"❌ [{target_step['id']}] Execution failed: {e}")
+            raise SystemExit(1)
     
     # If specific instruction file provided, execute only that one
     if args.instruction_file:
