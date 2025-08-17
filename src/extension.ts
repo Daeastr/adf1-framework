@@ -16,9 +16,7 @@ function runOrchestrator(args: string[]) {
         name: "AADF Orchestrator",
         hideFromUser: false,
     });
-    const quotedArgs = args.map(a =>
-        a.includes(" ") ? `"${a}"` : a
-    );
+    const quotedArgs = args.map(a => a.includes(" ") ? `"${a}"` : a);
     term.sendText(`python "${ORCHESTRATOR_MODULE}" ${quotedArgs.join(" ")}`);
     term.show();
 }
@@ -32,11 +30,38 @@ function getLogPathsForStep(item: any): string[] {
     if (item?.logPath) {
         return [item.logPath];
     }
+    if (item?.log_file) {
+        return [item.log_file];
+    }
     vscode.window.showWarningMessage("No log paths found for step");
     return [];
 }
 
 export function activate(context: vscode.ExtensionContext) {
+    // Register the log alert command to receive alerts from Python
+    context.subscriptions.push(
+        vscode.commands.registerCommand('aadf.showLogAlert', (alertData: string) => {
+            try {
+                // Parse the alert data from the command line format: level?step?message
+                const parts = alertData.split('?');
+                if (parts.length >= 3) {
+                    const [level, step, ...messageParts] = parts;
+                    const message = messageParts.join('?'); // Rejoin in case message contains '?'
+                    
+                    if (level === 'error') {
+                        vscode.window.showErrorMessage(`❌ [${step}] ${message}`);
+                    } else if (level === 'warn') {
+                        vscode.window.showWarningMessage(`⚠️ [${step}] ${message}`);
+                    }
+                } else {
+                    console.error('Invalid alert data format:', alertData);
+                }
+            } catch (error) {
+                console.error('Failed to process log alert:', error);
+            }
+        })
+    );
+
     // Open AADF Step Log
     context.subscriptions.push(
         vscode.commands.registerCommand("aadfLogs.openLog", (item) => {
