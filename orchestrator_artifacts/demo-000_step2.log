@@ -1,0 +1,20 @@
+[2025-08-17 19:36:51] Task ID: demo-000, Step: 2
+==================================================
+Task Execution Report
+Status: completed
+Duration: 0.0 seconds
+Task Details: {
+  "id": "demo-000",
+  "action": "noop",
+  "params": {},
+  "priority": "low",
+  "risk": "safe",
+  "_step_index": 2,
+  "_capabilities": [],
+  "_agent": "CoderAgent"
+}
+
+Output:
+Executed task: noop
+Task processed with default handler
+==================================================
