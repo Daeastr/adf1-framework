@@ -1,4 +1,5 @@
-# existing code; import * as vscode from 'vscode';
+// extension.ts
+import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as cp from 'child_process';
@@ -14,8 +15,14 @@ export function activate(context: vscode.ExtensionContext) {
     const planProvider = new PlanProvider(cwd);
     
     // Register tree data providers
-    vscode.window.registerTreeDataProvider('aadfStepLogs', logsProvider);
-    vscode.window.registerTreeDataProvider('aadfPlanTree', planProvider);
+    const logsTreeView = vscode.window.createTreeView('aadfStepLogs', { 
+        treeDataProvider: logsProvider,
+        canSelectMany: true 
+    });
+    const planTreeView = vscode.window.createTreeView('aadfPlanTree', { 
+        treeDataProvider: planProvider,
+        canSelectMany: true 
+    });
     
     // Register log commands
     context.subscriptions.push(
@@ -26,13 +33,32 @@ export function activate(context: vscode.ExtensionContext) {
         }),
         vscode.commands.registerCommand('aadfLogs.refresh', () => {
             logsProvider.refresh();
-        })
+        }),
+        // Enhanced multi-log tailing using tree selection
+        vscode.commands.registerCommand('aadfLogs.tailMultipleLogs', async (arg?: any) => {
+            // Prefer explicit selection from the tree view
+            const selectedLogs = logsTreeView.selection?.length ? logsTreeView.selection : (arg ? [arg] : []);
+            const logPaths = selectedLogs
+                .map((item: any) => item.filepath)
+                .filter(Boolean) as string[];
+
+            if (!logPaths.length) {
+                vscode.window.showWarningMessage('No log files in selection.');
+                return;
+            }
+
+            const term = vscode.window.createTerminal({ 
+                name: `Logs: ${logPaths.length} files`, 
+                cwd: cwd 
+            });
+            term.show();
+            term.sendText(`.\\venv\\Scripts\\activate && python -m core.orchestrator --follow-log ${logPaths.map(p => `"${p}"`).join(' ')}`);
+        }),
     );
 
     // Register plan preview commands
     context.subscriptions.push(
         vscode.commands.registerCommand('aadf.openPlanPreview', async () => {
-            // Reveal the view in Explorer
             await vscode.commands.executeCommand('workbench.view.explorer');
             try {
                 await vscode.commands.executeCommand('workbench.views.focus', 'aadfStepLogs');
@@ -66,7 +92,7 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
-    // Register step log viewing command
+    // Register step log viewing and tailing commands
     context.subscriptions.push(
         vscode.commands.registerCommand('aadf.viewStepLog', async (step: any) => {
             if (!step.log_file) {
@@ -77,18 +103,39 @@ export function activate(context: vscode.ExtensionContext) {
             await vscode.window.showTextDocument(doc, { preview: false });
         }),
         
-        // Add Tail Log command
+        // Enhanced Tail Log command - now supports multiple steps using selection
         vscode.commands.registerCommand('aadf.tailStepLog', (step: any) => {
             if (!step.log_file) {
                 vscode.window.showWarningMessage(`No log file for step ${step.id}`);
                 return;
             }
             const term = vscode.window.createTerminal({ 
-                name: `Logs: ${step.id}`, 
+                name: `Log: ${step.id}`, 
                 cwd: cwd 
             });
             term.show();
             term.sendText(`.\\venv\\Scripts\\activate && python -m core.orchestrator --follow-log "${step.log_file}"`);
+        }),
+
+        // Multi-tail command that uses current tree selection
+        vscode.commands.registerCommand('aadf.tailMultipleStepLogs', async (arg?: any) => {
+            // Prefer explicit selection from the tree view
+            const selectedSteps = planTreeView.selection?.length ? planTreeView.selection : (arg ? [arg] : []);
+            const logs = selectedSteps
+                .map((s: any) => s.stepData?.log_file)
+                .filter(Boolean) as string[];
+
+            if (!logs.length) {
+                vscode.window.showWarningMessage('No log files in selection.');
+                return;
+            }
+
+            const term = vscode.window.createTerminal({ 
+                name: `Logs: ${logs.length} steps`, 
+                cwd: cwd 
+            });
+            term.show();
+            term.sendText(`.\\venv\\Scripts\\activate && python -m core.orchestrator --follow-log ${logs.map(l => `"${l}"`).join(' ')}`);
         }),
         
         // Keep the run step command for when logs don't exist
@@ -99,8 +146,27 @@ export function activate(context: vscode.ExtensionContext) {
                 cwd: cwd 
             });
             term.show();
-            // Run orchestrator with a --step-id flag to target only this step
             term.sendText(`.\\venv\\Scripts\\activate && python -m core.orchestrator --step-id ${stepId}`);
+        }),
+
+        // NEW: Run multiple selected steps
+        vscode.commands.registerCommand('aadf.runMultipleSteps', async (selectedSteps: any[]) => {
+            if (selectedSteps.length === 0) {
+                vscode.window.showWarningMessage('No steps selected to run');
+                return;
+            }
+            
+            const stepIds = selectedSteps.map(step => step.id);
+            const term = vscode.window.createTerminal({ 
+                name: `Multi-Run (${stepIds.length})`, 
+                cwd: cwd 
+            });
+            term.show();
+            
+            // Run each step sequentially
+            for (const stepId of stepIds) {
+                term.sendText(`python -m core.orchestrator --step-id ${stepId}`);
+            }
         })
     );
 
@@ -123,7 +189,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
 }
 
-// LogItem class for log files
+// Enhanced LogItem class for log files with multi-select support
 class LogItem extends vscode.TreeItem {
     constructor(
         public readonly label: string,
@@ -146,6 +212,9 @@ class LogItem extends vscode.TreeItem {
             this.iconPath = new vscode.ThemeIcon('question');
         }
         
+        // Add context value for right-click menus
+        this.contextValue = 'logFile';
+        
         this.tooltip = `Log file: ${path.basename(filepath)}`;
         this.description = this.getLogDescription(filepath);
     }
@@ -162,7 +231,7 @@ class LogItem extends vscode.TreeItem {
     }
 }
 
-// LogsProvider class
+// Enhanced LogsProvider class with multi-select support
 class LogsProvider implements vscode.TreeDataProvider<LogItem> {
     private _onDidChangeTreeData = new vscode.EventEmitter<LogItem | undefined>();
     readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
@@ -176,7 +245,6 @@ class LogsProvider implements vscode.TreeDataProvider<LogItem> {
         try {
             const raw = fs.readFileSync(this.stateFile, 'utf8');
             const state = JSON.parse(raw);
-            // Assuming state.steps[] with { id, status }
             for (const step of state.steps || []) {
                 this.stepResults[`${step.id}_step${step.index}`] = (step.status === 'passed');
             }
@@ -186,7 +254,7 @@ class LogsProvider implements vscode.TreeDataProvider<LogItem> {
     }
 
     refresh(): void {
-        this.loadState(); // Reload state when refreshing
+        this.loadState();
         this._onDidChangeTreeData.fire(undefined);
     }
 
@@ -208,7 +276,7 @@ class LogsProvider implements vscode.TreeDataProvider<LogItem> {
     }
 }
 
-// PlanProvider class for activity bar tree view
+// Enhanced PlanProvider class with multi-select support
 class PlanProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
     private _onDidChangeTreeData = new vscode.EventEmitter<void>();
     readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
@@ -229,7 +297,7 @@ class PlanProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
             const output = cp.execSync(parseScript, { 
                 cwd: this.cwd, 
                 shell: "powershell.exe",
-                timeout: 10000 // 10 second timeout
+                timeout: 10000
             }).toString();
             
             const plan = JSON.parse(output);
@@ -248,8 +316,12 @@ class PlanProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
                     arguments: [step]
                 };
                 
-                // Add context value for right-click menus
+                // Add context value for right-click menus with multi-select support
                 item.contextValue = 'planStep';
+                
+                // Store step data for multi-select operations and selection access
+                (item as any).stepData = step;
+                (item as any).log_file = step.log_file; // Direct access for selection filtering
                 
                 return item;
             });
@@ -261,7 +333,7 @@ class PlanProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
     }
 }
 
-// WebView panel for plan preview
+// WebView panel for plan preview (unchanged)
 function showPlanPreview(context: vscode.ExtensionContext) {
     const panel = vscode.window.createWebviewPanel(
         'aadfPlanPreview',
