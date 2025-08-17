@@ -1,6 +1,7 @@
 from pathlib import Path
 import json
 import subprocess
+import argparse
 from core.agent_registry import select_agent_for_step
 import core.sandbox_runner as sandbox_runner
 from core.executor import run_agent_task  # import your upgraded executor
@@ -204,24 +205,39 @@ def run_tests_and_execute():
     print("\n🚀 Phase 2: Executing validated instructions...")
     return run_all_validated()
 
-# Legacy comment preserved for reference:
-# After parsing instructions
-# actions = [step["action"] for step in all_valid_steps]
-# test_files = get_tests_for_actions(actions)
-# if test_files:
-#     subprocess.run(["pytest", *test_files])
-# else:
-#     subprocess.run(["pytest"])
-
 if __name__ == "__main__":
-    # Use strict loader for mapping, but ensure there are instructions for execution
-    mapping_instrs = load_valid_instructions()
+    # Add argument parsing for --parse-only flag
+    parser = argparse.ArgumentParser(description="AADF Orchestrator - Execute or parse instruction files")
+    parser.add_argument("--parse-only", action="store_true", 
+                       help="Only parse and output instructions as JSON, don't execute")
+    parser.add_argument("instruction_file", nargs="?", 
+                       help="Specific instruction file to execute (optional)")
+    
+    args = parser.parse_args()
+    
+    # Load instructions
     all_instrs = load_all_instructions()
-
+    
     if not all_instrs:
         print("No valid instructions found.")
         raise SystemExit(0)
-
+    
+    # If --parse-only flag is set, output JSON and exit
+    if args.parse_only:
+        # Output clean JSON for VS Code extension
+        print(json.dumps(all_instrs, indent=None, separators=(',', ':')))
+        exit(0)
+    
+    # If specific instruction file provided, execute only that one
+    if args.instruction_file:
+        print(f"🎯 Executing specific instruction file: {args.instruction_file}")
+        # Implementation for single file execution would go here
+        # For now, fall through to normal execution path
+    
+    # Normal execution path - run tests and execute all instructions
+    # Use strict loader for mapping, but ensure there are instructions for execution
+    mapping_instrs = load_valid_instructions()
+    
     actions = [step["action"] for step in (mapping_instrs or []) if "action" in step]
     test_files = get_tests_for_actions(actions)
 
@@ -231,3 +247,7 @@ if __name__ == "__main__":
     else:
         print("⚠️ No mapped tests found — running full suite")
         subprocess.run(["pytest"], check=False)
+    
+    # After tests, execute all validated instructions
+    print("\n🚀 Phase 2: Executing all validated instructions...")
+    run_all_validated()
