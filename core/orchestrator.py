@@ -2,6 +2,7 @@
 import json
 import subprocess
 import argparse
+import time
 from core.agent_registry import select_agent_for_step
 import core.sandbox_runner as sandbox_runner
 from core.executor import run_agent_task  # import your upgraded executor
@@ -251,10 +252,43 @@ if __name__ == "__main__":
                        help="Execute only the step with the specified ID")
     parser.add_argument("--output-execution-json", action="store_true",
                        help="Output execution results as JSON for Plan Preview")
+    parser.add_argument("--follow-log", type=str, 
+                       help="Path to log file to tail and stream updates")
     parser.add_argument("instruction_file", nargs="?", 
                        help="Specific instruction file to execute (optional)")
     
     args = parser.parse_args()
+    
+    # Handle --follow-log mode
+    if args.follow_log:
+        import time
+        
+        log_path = Path(args.follow_log)
+        last_size = 0
+        
+        print(f"📋 Following log file: {log_path}")
+        print("🔄 Streaming updates... (Ctrl+C to stop)")
+        print("-" * 50)
+        
+        try:
+            while True:
+                if log_path.exists():
+                    size = log_path.stat().st_size
+                    if size > last_size:
+                        with open(log_path, "r", encoding="utf-8") as f:
+                            f.seek(last_size)
+                            chunk = f.read()
+                            if chunk:
+                                print(chunk, end="")
+                        last_size = size
+                elif last_size == 0:
+                    print(f"⏳ Waiting for log file to be created: {log_path}")
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\n📋 Log following stopped.")
+        except Exception as e:
+            print(f"\n❌ Error following log: {e}")
+        exit(0)
     
     # Load instructions
     all_instrs = load_all_instructions()

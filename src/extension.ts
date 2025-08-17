@@ -1,4 +1,4 @@
-import * as vscode from 'vscode';
+# existing code; import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as cp from 'child_process';
@@ -75,6 +75,20 @@ export function activate(context: vscode.ExtensionContext) {
             const logUri = vscode.Uri.file(step.log_file);
             const doc = await vscode.workspace.openTextDocument(logUri);
             await vscode.window.showTextDocument(doc, { preview: false });
+        }),
+        
+        // Add Tail Log command
+        vscode.commands.registerCommand('aadf.tailStepLog', (step: any) => {
+            if (!step.log_file) {
+                vscode.window.showWarningMessage(`No log file for step ${step.id}`);
+                return;
+            }
+            const term = vscode.window.createTerminal({ 
+                name: `Logs: ${step.id}`, 
+                cwd: cwd 
+            });
+            term.show();
+            term.sendText(`.\\venv\\Scripts\\activate && python -m core.orchestrator --follow-log "${step.log_file}"`);
         }),
         
         // Keep the run step command for when logs don't exist
@@ -235,7 +249,7 @@ class PlanProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
                 };
                 
                 // Add context value for right-click menus
-                item.contextValue = 'aadfStep';
+                item.contextValue = 'planStep';
                 
                 return item;
             });
