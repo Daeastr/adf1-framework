@@ -1,4 +1,15 @@
 # core/orchestrator.py
+from core.venv_guard import check_venv_health, VenvMismatchError, auto_fix
+
+try:
+    check_venv_health()
+except VenvMismatchError as e:
+    print(f"❌ Virtual environment is missing or mismatched packages:\n{e}")
+    choice = input("Run auto‑fix now? [y/N]: ").strip().lower()
+    if choice == "y":
+        auto_fix()
+    else:
+        sys.exit(1)
 
 import time
 from pathlib import Path
