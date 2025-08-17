@@ -8,6 +8,8 @@ export function activate(context: vscode.ExtensionContext) {
     const statePath = path.join(root, 'orchestrator_state.json');
     const provider = new LogsProvider(artifactsPath, statePath);
     vscode.window.registerTreeDataProvider('aadfStepLogs', provider);
+    
+    // Register log opening command
     context.subscriptions.push(
         vscode.commands.registerCommand('aadfLogs.openLog', (filepath: string) => {
             vscode.workspace.openTextDocument(filepath).then(doc => {
@@ -15,6 +17,8 @@ export function activate(context: vscode.ExtensionContext) {
             });
         })
     );
+
+    // Register plan preview command
     context.subscriptions.push(
         vscode.commands.registerCommand('aadf.openPlanPreview', async () => {
             // Reveal the view in Explorer
@@ -28,6 +32,32 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.window.showInformationMessage('AADF: Plan Preview opened in Explorer (look for Plan Preview).');
         })
     );
+
+    // Create status bar item for plan preview
+    const previewCommand = 'aadf1.showPlanPreview';
+    const previewButton = vscode.window.createStatusBarItem(
+        vscode.StatusBarAlignment.Left,
+        100
+    );
+    previewButton.command = previewCommand;
+    previewButton.text = '$(preview) Plan Preview';
+    previewButton.tooltip = 'Open AADF Plan Preview Panel';
+    previewButton.show();
+
+    context.subscriptions.push(previewButton);
+
+    // Register the webview panel command
+    context.subscriptions.push(
+        vscode.commands.registerCommand(previewCommand, () => {
+            showPlanPreview(context);
+        })
+    );
+
+    // Auto-restore if user had the panel open last time
+    const wasOpen = context.globalState.get('aadfPreviewOpen');
+    if (wasOpen) {
+        showPlanPreview(context);
+    }
 }
 
 // LogItem class for log files
@@ -98,9 +128,7 @@ class LogsProvider implements vscode.TreeDataProvider<LogItem> {
     }
 
     getChildren(): Thenable<LogItem[]> {
-        if (!fs.existsSync(this.artifactsDir)) {
-            return Promise.resolve([]);
-        }
+        if (!fs.existsSync(this.artifactsDir)) return Promise.resolve([]);
         const files = fs.readdirSync(this.artifactsDir).filter(f => f.endsWith('.log'));
         return Promise.resolve(
             files.map(f => {
@@ -113,31 +141,4 @@ class LogsProvider implements vscode.TreeDataProvider<LogItem> {
     getTreeItem(element: LogItem): vscode.TreeItem {
         return element;
     }
-}
-export function activate(context: vscode.ExtensionContext) {
-    const disposable = vscode.commands.registerCommand('aadf.openPlanPreview', () => {
-        showPlanPreview(context);
-    });
-    context.subscriptions.push(disposable);
-
-    // Auto‑restore if user had the panel open last time
-    const wasOpen = context.globalState.get('aadfPreviewOpen');
-    if (wasOpen) {
-        showPlanPreview(context);
-    }
-}
-
-function showPlanPreview(context: vscode.ExtensionContext) {
-    const panel = vscode.window.createWebviewPanel(
-        'aadfPlanPreview',
-        'AADF Plan Preview',
-        vscode.ViewColumn.Two,
-        { enableScripts: true, retainContextWhenHidden: true }
-    );
-    panel.webview.html = renderPlanHtml(); // your function to run parse_only and build HTML
-
-    panel.onDidDispose(() => {
-        context.globalState.update('aadfPreviewOpen', false);
-    });
-    context.globalState.update('aadfPreviewOpen', true);
 }
