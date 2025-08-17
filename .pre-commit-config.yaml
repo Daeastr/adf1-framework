@@ -2,6 +2,6 @@
   hooks:
     - id: sync-action-map
       name: Sync Action Map & Placeholders
-      entry: python scripts/sync_action_map.py
+      entry: python scripts/run_sync_action_map.py
       language: system
       pass_filenames: false
