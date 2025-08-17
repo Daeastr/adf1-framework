@@ -2,6 +2,40 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 
+// Plan step node interface for tree view
+interface PlanStepNode extends vscode.TreeItem {
+    id: string;
+    tests?: string[];
+}
+
+function loadActionMap(root: string): Record<string, string[]> {
+    try {
+        const p = path.join(root, 'tests', 'action_map.json');
+        if (fs.existsSync(p)) {
+            return JSON.parse(fs.readFileSync(p, 'utf8'));
+        }
+    } catch (e) {
+        console.warn('Failed to load action_map.json', e);
+    }
+    return {};
+}
+
+function buildPlanTree(root: string, instructions: any[]): PlanStepNode[] {
+    const actionMap = loadActionMap(root);
+    return instructions.map((instr: any) => {
+        const tests = actionMap[instr.action] || [];
+        const item: any = new vscode.TreeItem(instr.id);
+        item.id = instr.id;
+        item.tests = tests;
+        item.command = {
+            command: 'aadf.runStepTests',
+            title: 'Run Tests',
+            arguments: [tests]
+        };
+        return item as PlanStepNode;
+    });
+}
+
 export function activate(context: vscode.ExtensionContext) {
     const root = vscode.workspace.rootPath || '';
     const artifactsPath = path.join(root, 'orchestrator_artifacts');
@@ -52,6 +86,26 @@ export function activate(context: vscode.ExtensionContext) {
             showPlanPreview(context);
         })
     );
+
+    // Register command to run tests for a step (tests: string[])
+    context.subscriptions.push(
+        vscode.commands.registerCommand('aadf.runStepTests', async (tests: string[] = []) => {
+            if (!tests || !tests.length) {
+                vscode.window.showWarningMessage('No mapped tests — running full suite instead');
+                runInTerminal('pytest');
+                return;
+            }
+            const joined = tests.map(t => `"${t}"`).join(' ');
+            runInTerminal(`pytest ${joined}`);
+        })
+    );
+
+    // helper to run a simple command in an integrated terminal
+    function runInTerminal(cmd: string) {
+        const term = vscode.window.createTerminal('AADF Tests');
+        term.show();
+        term.sendText(cmd);
+    }
 
     // Register selective rerun command: opens an integrated terminal, runs the sync script and pytest
     context.subscriptions.push(
@@ -480,6 +534,22 @@ class LogsProvider implements vscode.TreeDataProvider<LogItem> {
 
     constructor(private artifactsDir: string, private stateFile: string) {
         this.loadState();
+    }
+
+    // Return plan nodes built from the orchestrator state file
+    getPlanNodes(): PlanStepNode[] {
+        try {
+            const root = vscode.workspace.rootPath || '';
+            if (!fs.existsSync(this.stateFile)) {
+                return [];
+            }
+            const raw = fs.readFileSync(this.stateFile, 'utf8');
+            const state = JSON.parse(raw);
+            const steps = state.steps || [];
+            return buildPlanTree(root, steps);
+        } catch (e) {
+            return [];
+        }
     }
 
     private loadState() {

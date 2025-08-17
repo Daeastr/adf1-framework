@@ -1,8 +1,15 @@
 import os
+import sys
 import json
 import shutil
-from execute import run_instruction
-from restore_backup import restore_backups
+from pathlib import Path
+
+# Ensure repo root is on sys.path so `core` package can be imported reliably
+repo_root = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(repo_root))
+
+from core.sandbox_image.execute import run_instruction
+from core.sandbox_image.restore_backup import restore_backups
 
 INSTRUCTION_FILE = "core/instructions/demo.json"
 TARGET_FILE = "core/module.py"

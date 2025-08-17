@@ -38,6 +38,16 @@
         }
       ]
     }
+    ,
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "aadf.runStepTests",
+          "when": "view == aadfStepLogs",
+          "group": "inline"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
