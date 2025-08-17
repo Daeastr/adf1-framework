@@ -54,6 +54,25 @@ export function activate(context: vscode.ExtensionContext) {
             term.show();
             term.sendText(`.\\venv\\Scripts\\activate && python -m core.orchestrator --follow-log ${logPaths.map(p => `"${p}"`).join(' ')}`);
         }),
+        // NEW: Color tail command for logs
+        vscode.commands.registerCommand('aadfLogs.tailColoredLogs', async (arg?: any) => {
+            const selectedLogs = logsTreeView.selection?.length ? logsTreeView.selection : (arg ? [arg] : []);
+            const logPaths = selectedLogs
+                .map((item: any) => item.filepath)
+                .filter(Boolean) as string[];
+
+            if (!logPaths.length) {
+                vscode.window.showWarningMessage('No log files selected for colored tailing.');
+                return;
+            }
+
+            const term = vscode.window.createTerminal({ 
+                name: `Logs: colored (${logPaths.length})`, 
+                cwd: cwd 
+            });
+            term.show();
+            term.sendText(`.\\venv\\Scripts\\activate && python -m core.orchestrator --follow-log-colored ${logPaths.map(p => `"${p}"`).join(' ')}`);
+        }),
     );
 
     // Register plan preview commands
@@ -137,6 +156,26 @@ export function activate(context: vscode.ExtensionContext) {
             term.show();
             term.sendText(`.\\venv\\Scripts\\activate && python -m core.orchestrator --follow-log ${logs.map(l => `"${l}"`).join(' ')}`);
         }),
+
+        // NEW: Colored tail for step logs
+        vscode.commands.registerCommand('aadf.tailColoredStepLogs', async (arg?: any) => {
+            const selectedSteps = planTreeView.selection?.length ? planTreeView.selection : (arg ? [arg] : []);
+            const logs = selectedSteps
+                .map((s: any) => s.stepData?.log_file)
+                .filter(Boolean) as string[];
+
+            if (!logs.length) {
+                vscode.window.showWarningMessage('No log files in selection for colored tailing.');
+                return;
+            }
+
+            const term = vscode.window.createTerminal({ 
+                name: `Logs: colored (${logs.length})`, 
+                cwd: cwd 
+            });
+            term.show();
+            term.sendText(`.\\venv\\Scripts\\activate && python -m core.orchestrator --follow-log-colored ${logs.map(l => `"${l}"`).join(' ')}`);
+        }),
         
         // Keep the run step command for when logs don't exist
         vscode.commands.registerCommand('aadf.runStep', async (step: any) => {
@@ -149,7 +188,7 @@ export function activate(context: vscode.ExtensionContext) {
             term.sendText(`.\\venv\\Scripts\\activate && python -m core.orchestrator --step-id ${stepId}`);
         }),
 
-        // NEW: Run multiple selected steps
+        // Run multiple selected steps
         vscode.commands.registerCommand('aadf.runMultipleSteps', async (selectedSteps: any[]) => {
             if (selectedSteps.length === 0) {
                 vscode.window.showWarningMessage('No steps selected to run');
@@ -167,6 +206,41 @@ export function activate(context: vscode.ExtensionContext) {
             for (const stepId of stepIds) {
                 term.sendText(`python -m core.orchestrator --step-id ${stepId}`);
             }
+        }),
+
+        // Enhanced filtered logs command with color support
+        vscode.commands.registerCommand('aadf.tailFilteredLogs', async (arg?: any) => {
+            const selectedSteps = planTreeView.selection?.length ? planTreeView.selection : (arg ? [arg] : []);
+            const logs = selectedSteps
+                .filter((s: any) => !!s.stepData?.log_file)
+                .map((s: any) => `"${s.stepData.log_file}"`);
+
+            if (!logs.length) {
+                vscode.window.showWarningMessage('No log files in selection for filtering.');
+                return;
+            }
+
+            const levels = await vscode.window.showQuickPick(
+                ['ERROR', 'WARN', 'INFO', 'DEBUG'],
+                { canPickMany: true, placeHolder: 'Select log levels to include' }
+            );
+            if (!levels || !levels.length) { return; }
+
+            // Ask if user wants colored output
+            const useColor = await vscode.window.showQuickPick(
+                ['Yes', 'No'],
+                { placeHolder: 'Use colored output?' }
+            );
+
+            const colorFlag = useColor === 'Yes' ? '--follow-log-colored' : '--follow-log';
+            const term = vscode.window.createTerminal({ 
+                name: `Logs: filtered ${useColor === 'Yes' ? '(colored)' : ''}`, 
+                cwd: cwd 
+            });
+            term.show();
+            term.sendText(
+                `.\\venv\\Scripts\\activate && python -m core.orchestrator ${colorFlag} ${logs.join(" ")} --levels ${levels.join(" ")}`
+            );
         })
     );
 
@@ -333,7 +407,7 @@ class PlanProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
     }
 }
 
-// WebView panel for plan preview (unchanged)
+// WebView panel for plan preview
 function showPlanPreview(context: vscode.ExtensionContext) {
     const panel = vscode.window.createWebviewPanel(
         'aadfPlanPreview',
@@ -462,18 +536,3 @@ function renderPlanHtml(): string {
         `;
     }
 }
-vscode.commands.registerCommand('aadf.tailFilteredLogs', async (steps) => {
-    const levels = await vscode.window.showQuickPick(
-        ['ERROR', 'WARN', 'INFO', 'DEBUG'],
-        { canPickMany: true, placeHolder: 'Select log levels to include' }
-    );
-    if (!levels || !levels.length) { return; }
-
-    const logs = steps.filter((s: any) => !!s.log_file).map((s: any) => `"${s.log_file}"`);
-    const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "";
-    const term = vscode.window.createTerminal({ name: `Logs: filtered`, cwd });
-    term.show();
-    term.sendText(
-        `.\\venv\\Scripts\\activate && python -m core.orchestrator --follow-log ${logs.join(" ")} --levels ${levels.join(" ")}`
-    );
-});

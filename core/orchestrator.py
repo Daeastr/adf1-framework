@@ -1,12 +1,14 @@
-# existing code; from pathlib import Path
+# core/orchestrator.py
+import time
+from pathlib import Path
+import argparse
 import json
 import subprocess
-import argparse
-import time
 import re
+from itertools import cycle
 from core.agent_registry import select_agent_for_step
 import core.sandbox_runner as sandbox_runner
-from core.executor import run_agent_task  # import your upgraded executor
+from core.executor import run_agent_task
 from core.validator import validate_instruction_file, ValidationError
 
 ACTION_MAP_PATH = Path("tests/action_map.json")
@@ -14,7 +16,107 @@ INSTRUCTIONS_DIR = Path(__file__).parent.parent / "instructions"
 INSTR_DIR = Path(__file__).parent.parent / "instructions"
 
 # Files to skip when parsing instructions
-SKIP_FILES = {"schema.json"}  # explicit skip list
+SKIP_FILES = {"schema.json"}
+
+# ANSI color codes for step coloring
+STEP_COLORS = cycle([
+    "\033[36m",  # cyan
+    "\033[35m",  # magenta
+    "\033[34m",  # blue
+    "\033[33m",  # yellow
+    "\033[32m",  # green
+])
+RESET = "\033[0m"
+
+def tail_logs(paths: list[Path]):
+    """Enhanced multi-file log tailing with labeled output"""
+    last_sizes = {p: 0 for p in paths}
+    
+    print(f"📋 Following {len(paths)} log file(s):")
+    for p in paths:
+        print(f"  • {p}")
+    print("🔄 Streaming updates... (Ctrl+C to stop)")
+    print("-" * 60)
+
+    try:
+        while True:
+            for p in paths:
+                if p.exists():
+                    size = p.stat().st_size
+                    if size > last_sizes[p]:
+                        with open(p, "r", encoding="utf-8") as f:
+                            f.seek(last_sizes[p])
+                            chunk = f.read()
+                            if chunk:
+                                prefix = f"[{p.stem}] "
+                                for line in chunk.splitlines():
+                                    print(prefix + line)
+                        last_sizes[p] = size
+                elif last_sizes[p] == 0:
+                    # Only show "waiting" message once per file
+                    print(f"⏳ [{p.stem}] Waiting for log file to be created...")
+                    last_sizes[p] = -1  # Mark as "waiting message shown"
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print(f"\n📋 Log following stopped for {len(paths)} file(s).")
+
+def tail_logs_colored(paths: list[Path], levels: list[str] = None):
+    """Enhanced multi-file log tailing with ANSI colors and level filtering"""
+    patterns = None
+    if levels:
+        joined = "|".join([re.escape(lvl.upper()) for lvl in levels])
+        patterns = re.compile(rf"\b({joined})\b", re.IGNORECASE)
+
+    step_colors = {p: next(STEP_COLORS) for p in paths}
+    last_sizes = {p: 0 for p in paths}
+    
+    print(f"📋 Following {len(paths)} log file(s) with colors:")
+    for p in paths:
+        color = step_colors[p]
+        print(f"  {color}• {p}{RESET}")
+    if levels:
+        print(f"🔍 Filtering for levels: {', '.join(levels)}")
+    print("🔄 Streaming updates... (Ctrl+C to stop)")
+    print("-" * 60)
+
+    try:
+        while True:
+            for p in paths:
+                if p.exists():
+                    size = p.stat().st_size
+                    if size > last_sizes[p]:
+                        with open(p, "r", encoding="utf-8") as f:
+                            f.seek(last_sizes[p])
+                            for line in f:
+                                line = line.strip()
+                                if not line:
+                                    continue
+                                    
+                                # Apply level filtering if specified
+                                if patterns is None or patterns.search(line):
+                                    color = step_colors[p]
+                                    
+                                    # Override for severity highlighting
+                                    line_upper = line.upper()
+                                    if "ERROR" in line_upper:
+                                        color = "\033[31m"  # red
+                                    elif "WARN" in line_upper:
+                                        color = "\033[33m"  # yellow
+                                    elif "INFO" in line_upper:
+                                        color = "\033[37m"  # white/bright
+                                    elif "DEBUG" in line_upper:
+                                        color = "\033[90m"  # dark gray
+                                    
+                                    print(f"{color}[{p.stem}] {line}{RESET}")
+                        last_sizes[p] = size
+                elif last_sizes[p] == 0:
+                    # Only show "waiting" message once per file
+                    color = step_colors[p]
+                    print(f"⏳ {color}[{p.stem}]{RESET} Waiting for log file to be created...")
+                    last_sizes[p] = -1  # Mark as "waiting message shown"
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print(f"\n📋 Log following stopped for {len(paths)} file(s).")
 
 def load_valid_instructions():
     """Load only well-formed instruction docs, skip schema/invalid JSONs."""
@@ -57,7 +159,6 @@ def get_tests_for_actions(actions: list[str]) -> list[str]:
     
     test_files = []
     for action in actions:
-        # Collect mapped tests, ignore unmapped actions
         test_files.extend(action_map.get(action, []))
     return sorted(set(test_files))
 
@@ -69,7 +170,6 @@ def load_all_instructions():
         return instructions
 
     for json_file in INSTRUCTIONS_DIR.glob("*.json"):
-        # Skip helper/config files
         if json_file.name in SKIP_FILES:
             print(f"ℹ️ Skipping helper file: {json_file.name}")
             continue
@@ -88,7 +188,6 @@ def load_all_instructions():
 def run_instruction(instruction: dict) -> dict:
     """Legacy instruction runner - maintained for compatibility"""
     if instruction.get("sandbox"):
-        # call through the sandbox_runner module so tests can monkeypatch
         return sandbox_runner.run_in_sandbox(instruction)
     else:
         return run_normally(instruction)
@@ -104,53 +203,6 @@ def run_normally(instruction: dict) -> dict:
 def normalize_step_capabilities(step: dict) -> None:
     """Normalize step capabilities by ensuring _capabilities key exists."""
     step["_capabilities"] = step.get("capabilities", [])
-
-def tail_logs(paths: list[Path], levels: list[str] = None):
-    """Enhanced log tailer that can filter by log levels and handle multiple files."""
-    patterns = None
-    if levels:
-        # Build a regex like r"^\[?(ERROR|WARN)\]?" 
-        joined = "|".join([re.escape(lvl.upper()) for lvl in levels])
-        patterns = re.compile(rf"^\[?({joined})\]?")
-    
-    last_sizes = {p: 0 for p in paths}
-    
-    print(f"📋 Following {len(paths)} log file(s)")
-    if levels:
-        print(f"🔍 Filtering for levels: {', '.join(levels)}")
-    else:
-        print("📄 Showing all log lines")
-    
-    for path in paths:
-        print(f"   • {path}")
-    print("-" * 50)
-    
-    try:
-        while True:
-            for p in paths:
-                if p.exists():
-                    size = p.stat().st_size
-                    if size > last_sizes[p]:
-                        with open(p, "r", encoding="utf-8") as f:
-                            f.seek(last_sizes[p])
-                            for line in f:
-                                # If no filter patterns, show all lines
-                                # If filter patterns exist, only show matching lines
-                                if patterns is None or patterns.search(line):
-                                    # Prefix multi-file output with filename
-                                    if len(paths) > 1:
-                                        print(f"[{p.name}] {line}", end="")
-                                    else:
-                                        print(line, end="")
-                        last_sizes[p] = size
-                elif last_sizes[p] == 0:
-                    print(f"⏳ Waiting for log file to be created: {p}")
-                    last_sizes[p] = -1  # Mark as "waiting" to avoid spam
-            time.sleep(1)
-    except KeyboardInterrupt:
-        print(f"\n📋 Log following stopped.")
-    except Exception as e:
-        print(f"\n❌ Error following logs: {e}")
 
 def create_execution_summary(executed_steps: list[dict]) -> dict:
     """Create a comprehensive execution summary with log file information."""
@@ -182,15 +234,11 @@ def run_all_validated():
     for step_idx, instr in enumerate(valid_instrs, start=1):
         print(f"\n--- Executing Step {step_idx}/{len(valid_instrs)} ---")
         
-        # Prepare instruction for enhanced executor
-        instr["_step_index"] = step_idx  # so executor can name log files
-        
-        # Normalize capabilities and assign agent
+        instr["_step_index"] = step_idx
         normalize_step_capabilities(instr)
         capabilities = instr.get("capabilities", [])
         instr["_agent"] = select_agent_for_step(capabilities)
         
-        # Create step record with initial information
         step_record = {
             "id": instr["id"],
             "action": instr["action"],
@@ -199,15 +247,13 @@ def run_all_validated():
             "capabilities": capabilities
         }
         
-        # Run with enhanced executor
         try:
             result = run_agent_task(instr)
             
-            # Merge executor result into step record
             step_record.update({
                 "status": result.get("status", "unknown"),
                 "duration_sec": result.get("duration_sec", 0),
-                "log_file": result.get("log_file"),  # Ensure log_file is captured
+                "log_file": result.get("log_file"),
                 "output": result.get("output"),
                 "error": result.get("error")
             })
@@ -231,7 +277,6 @@ def run_all_validated():
             })
             executed_steps.append(step_record)
     
-    # Summary report
     print(f"\n=== Execution Summary ===")
     successful = sum(1 for step in executed_steps if step.get("status") == "completed")
     failed = len(executed_steps) - successful
@@ -245,21 +290,14 @@ def run_all_validated():
 
 def run_mapped_tests(all_valid_steps: list[dict]) -> None:
     """Run only mapped tests based on step actions."""
-    # Normalize capabilities and assign agents for all steps
     for step in all_valid_steps:
         normalize_step_capabilities(step)
-        
-        # Agent selection based on capabilities
         capabilities = step.get("capabilities", [])
         step["_agent"] = select_agent_for_step(capabilities)
     
-    # Extract actions from all valid steps
     actions = [step["action"] for step in all_valid_steps]
-    
-    # Get mapped test files
     test_files = get_tests_for_actions(actions)
     
-    # Run mapped tests only
     if test_files:
         print(f"🔍 Running mapped tests: {test_files}")
         subprocess.run(["pytest", *test_files])
@@ -270,10 +308,7 @@ def run_mapped_tests(all_valid_steps: list[dict]) -> None:
 def run_tests_and_execute():
     """Combined function to run tests and then execute validated instructions"""
     print("🧪 Phase 1: Loading and testing instructions...")
-    # For test mapping we use the stricter guard that skips schema and malformed JSON
     mapping_instrs = load_valid_instructions()
-
-    # Load all instructions for execution (preserve broader loading for runtime)
     all_instrs = load_all_instructions()
 
     if not all_instrs:
@@ -281,18 +316,15 @@ def run_tests_and_execute():
         return []
 
     if mapping_instrs:
-        # Run mapped tests only for strictly valid instruction docs
         run_mapped_tests(mapping_instrs)
     else:
-        # Fallback to running full suite if no strictly valid mapping documents found
         print("⚠️ No strictly valid mapping instructions found - running full test suite")
-        subprocess.run(["pytest"])    
+        subprocess.run(["pytest"])
 
     print("\n🚀 Phase 2: Executing validated instructions...")
     return run_all_validated()
 
 if __name__ == "__main__":
-    # Add argument parsing for --parse-only flag
     parser = argparse.ArgumentParser(description="AADF Orchestrator - Execute or parse instruction files")
     parser.add_argument("--parse-only", action="store_true", 
                        help="Only parse and output instructions as JSON, don't execute")
@@ -300,19 +332,26 @@ if __name__ == "__main__":
                        help="Execute only the step with the specified ID")
     parser.add_argument("--output-execution-json", action="store_true",
                        help="Output execution results as JSON for Plan Preview")
+    # Updated --follow-log to support multiple files
     parser.add_argument("--follow-log", nargs="+", 
-                       help="Path(s) to log file(s) to tail and stream updates")
-    parser.add_argument("--levels", nargs="*", 
-                       help="Log levels to include (e.g., ERROR WARN INFO). If not specified, shows all lines.")
+                       help="One or more log files to tail with labeled output")
+    # New --levels flag for filtering
+    parser.add_argument("--levels", nargs="+",
+                       help="Filter log output to only show specified levels (ERROR, WARN, INFO, DEBUG)")
     parser.add_argument("instruction_file", nargs="?", 
                        help="Specific instruction file to execute (optional)")
     
     args = parser.parse_args()
     
-    # Handle --follow-log mode
+    # Handle enhanced --follow-log mode for multiple files
     if args.follow_log:
         log_paths = [Path(p) for p in args.follow_log]
-        tail_logs(log_paths, args.levels)
+        
+        # Use colored tailing if levels are specified, otherwise use regular tailing
+        if args.levels:
+            tail_logs_colored(log_paths, args.levels)
+        else:
+            tail_logs(log_paths)
         exit(0)
     
     # Load instructions
@@ -322,13 +361,12 @@ if __name__ == "__main__":
         print("No valid instructions found.")
         raise SystemExit(0)
     
-    # If --parse-only flag is set, output JSON and exit
+    # Parse-only mode
     if args.parse_only:
-        # Output clean JSON for VS Code extension
         print(json.dumps(all_instrs, indent=None, separators=(',', ':')))
         exit(0)
     
-    # If --step-id is provided, execute only that specific step
+    # Single step execution
     if args.step_id:
         target_step = next((step for step in all_instrs if step['id'] == args.step_id), None)
         if not target_step:
@@ -337,17 +375,14 @@ if __name__ == "__main__":
         
         print(f"🎯 Executing single step: {args.step_id}")
         
-        # Prepare the step for execution
         target_step["_step_index"] = 1
         normalize_step_capabilities(target_step)
         capabilities = target_step.get("capabilities", [])
         target_step["_agent"] = select_agent_for_step(capabilities)
         
-        # Execute the step
         try:
             result = run_agent_task(target_step)
             
-            # Create step record with log file information
             step_record = {
                 "id": target_step["id"],
                 "action": target_step["action"],
@@ -356,7 +391,7 @@ if __name__ == "__main__":
                 "capabilities": capabilities,
                 "status": result.get("status", "unknown"),
                 "duration_sec": result.get("duration_sec", 0),
-                "log_file": result.get("log_file"),  # Ensure log_file is captured
+                "log_file": result.get("log_file"),
                 "output": result.get("output"),
                 "error": result.get("error")
             }
@@ -371,7 +406,6 @@ if __name__ == "__main__":
             else:
                 print(f"🎉 Step '{args.step_id}' executed successfully!")
                 
-                # Output JSON if requested
                 if args.output_execution_json:
                     execution_summary = create_execution_summary([step_record])
                     print("\n" + json.dumps(execution_summary, indent=2))
@@ -382,16 +416,13 @@ if __name__ == "__main__":
             print(f"❌ [{target_step['id']}] Execution failed: {e}")
             raise SystemExit(1)
     
-    # If specific instruction file provided, execute only that one
+    # Single instruction file execution
     if args.instruction_file:
         print(f"🎯 Executing specific instruction file: {args.instruction_file}")
         # Implementation for single file execution would go here
-        # For now, fall through to normal execution path
     
-    # Normal execution path - run tests and execute all instructions
-    # Use strict loader for mapping, but ensure there are instructions for execution
+    # Normal execution path
     mapping_instrs = load_valid_instructions()
-    
     actions = [step["action"] for step in (mapping_instrs or []) if "action" in step]
     test_files = get_tests_for_actions(actions)
 
@@ -402,11 +433,9 @@ if __name__ == "__main__":
         print("⚠️ No mapped tests found — running full suite")
         subprocess.run(["pytest"], check=False)
     
-    # After tests, execute all validated instructions
     print("\n🚀 Phase 2: Executing all validated instructions...")
     executed_steps = run_all_validated()
     
-    # Output execution results as JSON if requested
     if args.output_execution_json:
         execution_summary = create_execution_summary(executed_steps)
         print("\n=== EXECUTION JSON FOR PLAN PREVIEW ===")
