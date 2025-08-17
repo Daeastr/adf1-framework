@@ -3,6 +3,7 @@ import json
 import subprocess
 import argparse
 import time
+import re
 from core.agent_registry import select_agent_for_step
 import core.sandbox_runner as sandbox_runner
 from core.executor import run_agent_task  # import your upgraded executor
@@ -103,6 +104,53 @@ def run_normally(instruction: dict) -> dict:
 def normalize_step_capabilities(step: dict) -> None:
     """Normalize step capabilities by ensuring _capabilities key exists."""
     step["_capabilities"] = step.get("capabilities", [])
+
+def tail_logs(paths: list[Path], levels: list[str] = None):
+    """Enhanced log tailer that can filter by log levels and handle multiple files."""
+    patterns = None
+    if levels:
+        # Build a regex like r"^\[?(ERROR|WARN)\]?" 
+        joined = "|".join([re.escape(lvl.upper()) for lvl in levels])
+        patterns = re.compile(rf"^\[?({joined})\]?")
+    
+    last_sizes = {p: 0 for p in paths}
+    
+    print(f"📋 Following {len(paths)} log file(s)")
+    if levels:
+        print(f"🔍 Filtering for levels: {', '.join(levels)}")
+    else:
+        print("📄 Showing all log lines")
+    
+    for path in paths:
+        print(f"   • {path}")
+    print("-" * 50)
+    
+    try:
+        while True:
+            for p in paths:
+                if p.exists():
+                    size = p.stat().st_size
+                    if size > last_sizes[p]:
+                        with open(p, "r", encoding="utf-8") as f:
+                            f.seek(last_sizes[p])
+                            for line in f:
+                                # If no filter patterns, show all lines
+                                # If filter patterns exist, only show matching lines
+                                if patterns is None or patterns.search(line):
+                                    # Prefix multi-file output with filename
+                                    if len(paths) > 1:
+                                        print(f"[{p.name}] {line}", end="")
+                                    else:
+                                        print(line, end="")
+                        last_sizes[p] = size
+                elif last_sizes[p] == 0:
+                    print(f"⏳ Waiting for log file to be created: {p}")
+                    last_sizes[p] = -1  # Mark as "waiting" to avoid spam
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print(f"\n📋 Log following stopped.")
+    except Exception as e:
+        print(f"\n❌ Error following logs: {e}")
 
 def create_execution_summary(executed_steps: list[dict]) -> dict:
     """Create a comprehensive execution summary with log file information."""
@@ -252,8 +300,10 @@ if __name__ == "__main__":
                        help="Execute only the step with the specified ID")
     parser.add_argument("--output-execution-json", action="store_true",
                        help="Output execution results as JSON for Plan Preview")
-    parser.add_argument("--follow-log", type=str, 
-                       help="Path to log file to tail and stream updates")
+    parser.add_argument("--follow-log", nargs="+", 
+                       help="Path(s) to log file(s) to tail and stream updates")
+    parser.add_argument("--levels", nargs="*", 
+                       help="Log levels to include (e.g., ERROR WARN INFO). If not specified, shows all lines.")
     parser.add_argument("instruction_file", nargs="?", 
                        help="Specific instruction file to execute (optional)")
     
@@ -261,33 +311,8 @@ if __name__ == "__main__":
     
     # Handle --follow-log mode
     if args.follow_log:
-        import time
-        
-        log_path = Path(args.follow_log)
-        last_size = 0
-        
-        print(f"📋 Following log file: {log_path}")
-        print("🔄 Streaming updates... (Ctrl+C to stop)")
-        print("-" * 50)
-        
-        try:
-            while True:
-                if log_path.exists():
-                    size = log_path.stat().st_size
-                    if size > last_size:
-                        with open(log_path, "r", encoding="utf-8") as f:
-                            f.seek(last_size)
-                            chunk = f.read()
-                            if chunk:
-                                print(chunk, end="")
-                        last_size = size
-                elif last_size == 0:
-                    print(f"⏳ Waiting for log file to be created: {log_path}")
-                time.sleep(1)
-        except KeyboardInterrupt:
-            print("\n📋 Log following stopped.")
-        except Exception as e:
-            print(f"\n❌ Error following log: {e}")
+        log_paths = [Path(p) for p in args.follow_log]
+        tail_logs(log_paths, args.levels)
         exit(0)
     
     # Load instructions

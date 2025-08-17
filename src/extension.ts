@@ -462,3 +462,18 @@ function renderPlanHtml(): string {
         `;
     }
 }
+vscode.commands.registerCommand('aadf.tailFilteredLogs', async (steps) => {
+    const levels = await vscode.window.showQuickPick(
+        ['ERROR', 'WARN', 'INFO', 'DEBUG'],
+        { canPickMany: true, placeHolder: 'Select log levels to include' }
+    );
+    if (!levels || !levels.length) { return; }
+
+    const logs = steps.filter((s: any) => !!s.log_file).map((s: any) => `"${s.log_file}"`);
+    const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "";
+    const term = vscode.window.createTerminal({ name: `Logs: filtered`, cwd });
+    term.show();
+    term.sendText(
+        `.\\venv\\Scripts\\activate && python -m core.orchestrator --follow-log ${logs.join(" ")} --levels ${levels.join(" ")}`
+    );
+});
