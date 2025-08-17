@@ -13,6 +13,24 @@ INSTR_DIR = Path(__file__).parent.parent / "instructions"
 # Files to skip when parsing instructions
 SKIP_FILES = {"schema.json"}  # explicit skip list
 
+def load_valid_instructions() -> list[dict]:
+    """Load only valid instruction JSON files from the instructions folder.
+
+    Skips `schema.json` and any files that cannot be parsed or don't contain
+    the required keys (id, action, params). Returns a list of parsed docs.
+    """
+    valid = []
+    for f in INSTR_DIR.glob("*.json"):
+        if f.name == "schema.json":
+            continue
+        try:
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if all(k in doc for k in ("id", "action", "params")):
+                valid.append(doc)
+        except json.JSONDecodeError:
+            print(f"⚠ Skipping invalid JSON in {f.name}")
+    return valid
+
 def gather_actions_from_valid_instructions() -> list[str]:
     """Load only valid instruction files and collect their action fields."""
     actions = []
