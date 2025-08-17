@@ -53,6 +53,32 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    // Register selective rerun command: opens an integrated terminal, runs the sync script and pytest
+    context.subscriptions.push(
+        vscode.commands.registerCommand('aadf1.selectiveRerun', async () => {
+            const filter = await vscode.window.showInputBox({
+                prompt: 'Enter pytest -k expression to select tests (leave empty to run mapped tests)',
+                placeHolder: 'e.g. test_some_feature or "step_name"'
+            });
+
+            const rootPath = vscode.workspace.rootPath || '';
+            const term = vscode.window.createTerminal({ name: 'AADF Selective Rerun' });
+            term.show(true);
+
+            // Build commands carefully for PowerShell on Windows (workspace root then run scripts)
+            const cdCmd = rootPath ? `cd "${rootPath}";` : '';
+            const syncScriptPath = path.join(rootPath || '.', 'scripts', 'sync_action_map.py');
+            const syncCmd = `${cdCmd} python "${syncScriptPath}"`;
+            const pytestCmd = filter && filter.trim()
+                ? `${cdCmd} pytest -q -k "${filter.replace(/"/g, '\\"')}"`
+                : `${cdCmd} pytest -q`;
+
+            // Run the sync step first, then the pytest invocation
+            term.sendText(syncCmd);
+            term.sendText(pytestCmd);
+        })
+    );
+
     // Auto-restore if user had the panel open last time
     const wasOpen = context.globalState.get('aadfPreviewOpen');
     if (wasOpen) {

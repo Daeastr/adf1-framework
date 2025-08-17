@@ -21,6 +21,11 @@
       }
       ,
       {
+        "command": "aadf1.selectiveRerun",
+        "title": "AADF: Selective Rerun Mapped Tests"
+      }
+      ,
+      {
         "command": "aadf1.showPlanPreview",
         "title": "Show AADF Plan Preview"
       }
