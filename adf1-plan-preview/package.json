@@ -7,7 +7,7 @@
     "vscode": "^1.103.0"
   },
   "categories": ["Other"],
-  "activationEvents": ["onView:aadfStepLogs"],
+  "activationEvents": ["onView:aadfStepLogs", "onView:aadfPlanTree"],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
@@ -18,16 +18,24 @@
       {
         "command": "aadf.openPlanPreview",
         "title": "AADF: Open Plan Preview"
-      }
-      ,
+      },
       {
         "command": "aadf1.selectiveRerun",
         "title": "AADF: Selective Rerun Mapped Tests"
-      }
-      ,
+      },
       {
         "command": "aadf1.showPlanPreview",
         "title": "Show AADF Plan Preview"
+      },
+      {
+        "command": "aadf.tailColoredLogs",
+        "title": "Tail Colored Logs",
+        "icon": "$(output)"
+      },
+      {
+        "command": "aadf.tailColoredLogsWithAlert",
+        "title": "Tail Colored Logs with Alerts",
+        "icon": "$(bell)"
       }
     ],
     "views": {
@@ -35,16 +43,29 @@
         {
           "id": "aadfStepLogs",
           "name": "Plan Preview"
+        },
+        {
+          "id": "aadfPlanTree",
+          "name": "AADF Plan Tree"
         }
       ]
-    }
-    ,
+    },
     "menus": {
       "view/item/context": [
         {
           "command": "aadf.runStepTests",
           "when": "view == aadfStepLogs",
           "group": "inline"
+        },
+        {
+          "command": "aadf.tailColoredLogs",
+          "when": "view == aadfPlanTree && viewItem == planStep",
+          "group": "2_tail"
+        },
+        {
+          "command": "aadf.tailColoredLogsWithAlert",
+          "when": "view == aadfPlanTree && viewItem == planStep",
+          "group": "3_tail"
         }
       ]
     }

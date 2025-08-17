@@ -133,6 +133,13 @@ def tail_logs_colored(paths: list[Path], levels: list[str] = None):
     except KeyboardInterrupt:
         print(f"\n📋 Log following stopped for {len(paths)} file(s).")
 
+def tail_single_step_with_alert(path: Path):
+    """Single-step log tailing wrapper with alert integration"""
+    if not path.exists():
+        print(f"[tail-error] {path} not found")
+        return
+    tail_logs_with_alert([path])  # reuse Step 18 core
+
 def tail_logs_with_alert(paths: list[Path], levels: list[str] = None):
     """Enhanced multi-file log tailing with VS Code alert integration"""
     patterns = None
@@ -423,13 +430,32 @@ if __name__ == "__main__":
     # New --with-alerts flag for VS Code integration
     parser.add_argument("--with-alerts", action="store_true",
                        help="Enable VS Code alerts for ERROR/WARN log entries")
+    # Combined colored alert tailing
+    parser.add_argument("--follow-log-colored-alert", nargs="+", type=Path,
+                       help="Tail log files with colors, level filtering, and VS Code alerts")
+    # Single step log tailing with alerts
+    parser.add_argument("--tail-step-alert", type=Path,
+                       help="Tail a single step log file with alerts")
     parser.add_argument("instruction_file", nargs="?", 
                        help="Specific instruction file to execute (optional)")
     
     args = parser.parse_args()
     
+    # Handle single step alert tailing
+    if args.tail_step_alert:
+        tail_single_step_with_alert(args.tail_step_alert)
+        exit(0)
+    
+    # Handle the new combined colored alert tailing
+    elif args.follow_log_colored_alert:
+        if len(args.follow_log_colored_alert) == 1:
+            tail_single_step_with_alert(args.follow_log_colored_alert[0])
+        else:
+            tail_logs_with_alert(args.follow_log_colored_alert, args.levels)
+        exit(0)
+    
     # Handle enhanced --follow-log mode for multiple files
-    if args.follow_log:
+    elif args.follow_log:
         log_paths = [Path(p) for p in args.follow_log]
         
         # Use alert-enabled tailing if --with-alerts is specified

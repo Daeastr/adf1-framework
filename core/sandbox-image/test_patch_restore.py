@@ -1,52 +1,95 @@
-import os
-import sys
-import json
-import shutil
-from pathlib import Path
-
-# Ensure repo root is on sys.path so `core` package can be imported reliably
-repo_root = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(repo_root))
-
-from core.sandbox_image.execute import run_instruction
-from core.sandbox_image.restore_backup import restore_backups
-
-INSTRUCTION_FILE = "core/instructions/demo.json"
-TARGET_FILE = "core/module.py"
-
-def setup_instruction():
-    os.makedirs("core/instructions", exist_ok=True)
-    os.makedirs("core", exist_ok=True)
-
-    with open(INSTRUCTION_FILE, "w") as f:
-        json.dump({
-            "action": "replace",
-            "target": TARGET_FILE,
-            "patch": "def new_logic(): pass"
-        }, f)
-
-    with open(TARGET_FILE, "w") as f:
-        f.write("def old_logic(): pass")
-
-def cleanup():
-    for path in [INSTRUCTION_FILE, TARGET_FILE, TARGET_FILE + ".bak"]:
-        if os.path.exists(path):
-            os.remove(path)
-
-def test_patch_and_restore():
-    setup_instruction()
-    run_instruction(INSTRUCTION_FILE)
-
-    with open(TARGET_FILE) as f:
-        assert "new_logic" in f.read(), "Patch failed"
-
-    restore_backups()
-
-    with open(TARGET_FILE) as f:
-        assert "old_logic" in f.read(), "Restore failed"
-
-    print("✅ Patch and restore test passed.")
-
-if __name__ == "__main__":
-    test_patch_and_restore()
-    cleanup()
+{
+  "name": "aadf-plan-preview",
+  "displayName": "AADF Plan Preview",
+  "description": "VS Code extension for AADF framework plan preview and log monitoring",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:aadf.showPlanPreview",
+    "workspaceContains:**/orchestrator_artifacts",
+    "workspaceContains:**/orchestrator_state.json"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "aadfPreview",
+          "title": "AADF Plan Preview",
+          "icon": "resources/plan.svg"
+        }
+      ]
+    },
+    "views": {
+      "aadfPreview": [
+        {
+          "id": "aadfPlanTree",
+          "name": "Current Plan",
+          "when": "workspaceFolder"
+        }
+      ],
+      "explorer": [
+        {
+          "id": "aadfStepLogs",
+          "name": "Step Logs",
+          "when": "workspaceFolder"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "aadf.showPlanPreview",
+        "title": "Show Plan Preview",
+        "icon": "$(preview)"
+      },
+      {
+        "command": "aadf.openPlanPreview",
+        "title": "Open Plan Preview",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "aadfLogs.openLog",
+        "title": "Open Log File"
+      },
+      {
+        "command": "aadfLogs.refresh",
+        "title": "Refresh Logs",
+        "icon": "$(refresh)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "aadfLogs.refresh",
+          "when": "view == aadfStepLogs",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "aadf.showPlanPreview",
+          "when": "workspaceFolder"
+        },
+        {
+          "command": "aadf.openPlanPreview",
+          "when": "workspaceFolder"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.74.0",
+    "@types/node": "16.x",
+    "typescript": "^4.9.4"
+  }
+}
