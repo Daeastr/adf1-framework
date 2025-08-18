@@ -180,3 +180,37 @@ TRANSLATION_ACTIONS.update({
     "init_dual_party_session": init_dual_party_session,
     "recalibrate_translation": recalibrate_translation
 })
+# core/actions_translation.py
+
+def translation_init(params=None, context=None):
+    """
+    Stub handler for 'translation_init'.
+    Currently a safe no‑op placeholder.
+    """
+    return {
+        "status": "ok",
+        "message": "translation_init stub executed",
+        "params": params or {}
+    }
+
+
+def translation_process(params=None, context=None):
+    """
+    Stub handler for 'translation_process'.
+    """
+    return {
+        "status": "ok",
+        "message": "translation_process stub executed",
+        "params": params or {}
+    }
+
+
+def translation_finalize(params=None, context=None):
+    """
+    Stub handler for 'translation_finalize'.
+    """
+    return {
+        "status": "ok",
+        "message": "translation_finalize stub executed",
+        "params": params or {}
+    }

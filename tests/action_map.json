@@ -1,10 +1,37 @@
 {
   "noop": ["tests/test_readme.py"],
-  "create_endpoint": ["tests/test_api.py", "tests/test_security.py"],
-  "transform": ["tests/test_docs.py"],
-  "apply_patch": ["tests/test_cart.py"],
-  "translation_init": ["tests/test_translation.py"],
-  "translation_propose": ["tests/test_translation.py"],
-  "translation_interject": ["tests/test_translation.py"],
-  "translation_end": ["tests/test_translation.py"]
+  "validate": ["tests/test_validator.py"],
+  "translation_init": [
+    "tests/test_translation_init.py",
+    "tests/test_session_management.py"
+  ],
+  "translation_process": [
+    "tests/test_translation_process.py",
+    "tests/test_segment_processing.py"
+  ],
+  "translation_finalize": [
+    "tests/test_translation_finalize.py",
+    "tests/test_output_formatting.py"
+  ],
+  "translation_propose": [
+    "tests/test_translation_propose.py",
+    "tests/test_translation_options.py"
+  ],
+  "translation_interject": [
+    "tests/test_translation_interject.py",
+    "tests/test_corrections.py"
+  ],
+  "translation_end": [
+    "tests/test_translation_end.py",
+    "tests/test_session_closure.py"
+  ],
+  "translate_text": [
+    "tests/test_translate_text.py"
+  ],
+  "init_dual_party_session": [
+    "tests/test_dual_party_session.py"
+  ],
+  "recalibrate_translation": [
+    "tests/test_recalibrate_translation.py"
+  ]
 }
