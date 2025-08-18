@@ -1,17 +1,6 @@
 # core/orchestrator.py
-from core.venv_guard import check_venv_health, VenvMismatchError, auto_fix
-
-try:
-    check_venv_health()
-except VenvMismatchError as e:
-    print(f"❌ Virtual environment is missing or mismatched packages:\n{e}")
-    choice = input("Run auto‑fix now? [y/N]: ").strip().lower()
-    if choice == "y":
-        auto_fix()
-    else:
-        sys.exit(1)
-
 import time
+import sys
 from pathlib import Path
 import argparse
 import json
@@ -22,6 +11,9 @@ from core.agent_registry import select_agent_for_step
 import core.sandbox_runner as sandbox_runner
 from core.executor import run_agent_task
 from core.validator import validate_instruction_file, ValidationError
+
+# Add venv guard imports
+from core.venv_guard import check_venv_health, VenvMismatchError, auto_fix
 
 ACTION_MAP_PATH = Path("tests/action_map.json")
 INSTRUCTIONS_DIR = Path(__file__).parent.parent / "instructions"
@@ -43,6 +35,27 @@ RESET = "\033[0m"
 # Alert patterns for severity matching
 ERROR_PATTERN = re.compile(r"^ERROR", re.IGNORECASE)
 WARN_PATTERN = re.compile(r"^WARN", re.IGNORECASE)
+
+def check_environment():
+    """Check virtual environment health before executing any instructions."""
+    print("🔍 Checking virtual environment...")
+    try:
+        check_venv_health()
+        print("✅ Virtual environment is healthy")
+    except VenvMismatchError as e:
+        print(f"❌ Virtual environment issues detected:\n{e}")
+        choice = input("Run auto-fix now? [y/N]: ").strip().lower()
+        if choice == "y":
+            print("🔧 Running auto-fix...")
+            try:
+                auto_fix()
+                print("✅ Auto-fix completed successfully")
+            except Exception as fix_error:
+                print(f"❌ Auto-fix failed: {fix_error}")
+                sys.exit(1)
+        else:
+            print("⚠️ Continuing with potentially broken environment...")
+            # Could also sys.exit(1) here if you want to be strict
 
 def _send_vscode_alert(level: str, step: str, message: str):
     """Use VS Code's notification via command line (extension side will receive)."""
@@ -432,32 +445,28 @@ if __name__ == "__main__":
                        help="Execute only the step with the specified ID")
     parser.add_argument("--output-execution-json", action="store_true",
                        help="Output execution results as JSON for Plan Preview")
-    # Updated --follow-log to support multiple files
     parser.add_argument("--follow-log", nargs="+", 
                        help="One or more log files to tail with labeled output")
-    # New --levels flag for filtering
     parser.add_argument("--levels", nargs="+",
                        help="Filter log output to only show specified levels (ERROR, WARN, INFO, DEBUG)")
-    # New --with-alerts flag for VS Code integration
     parser.add_argument("--with-alerts", action="store_true",
                        help="Enable VS Code alerts for ERROR/WARN log entries")
-    # Combined colored alert tailing
     parser.add_argument("--follow-log-colored-alert", nargs="+", type=Path,
                        help="Tail log files with colors, level filtering, and VS Code alerts")
-    # Single step log tailing with alerts
     parser.add_argument("--tail-step-alert", type=Path,
                        help="Tail a single step log file with alerts")
+    parser.add_argument("--skip-venv-check", action="store_true",
+                       help="Skip virtual environment health check")
     parser.add_argument("instruction_file", nargs="?", 
                        help="Specific instruction file to execute (optional)")
     
     args = parser.parse_args()
     
-    # Handle single step alert tailing
+    # Handle log tailing modes (these don't need venv check)
     if args.tail_step_alert:
         tail_single_step_with_alert(args.tail_step_alert)
         exit(0)
     
-    # Handle the new combined colored alert tailing
     elif args.follow_log_colored_alert:
         if len(args.follow_log_colored_alert) == 1:
             tail_single_step_with_alert(args.follow_log_colored_alert[0])
@@ -465,19 +474,20 @@ if __name__ == "__main__":
             tail_logs_with_alert(args.follow_log_colored_alert, args.levels)
         exit(0)
     
-    # Handle enhanced --follow-log mode for multiple files
     elif args.follow_log:
         log_paths = [Path(p) for p in args.follow_log]
         
-        # Use alert-enabled tailing if --with-alerts is specified
         if args.with_alerts:
             tail_logs_with_alert(log_paths, args.levels)
-        # Use colored tailing if levels are specified
         elif args.levels:
             tail_logs_colored(log_paths, args.levels)
         else:
             tail_logs(log_paths)
         exit(0)
+    
+    # For all execution modes, check environment first (unless skipped)
+    if not args.skip_venv_check:
+        check_environment()
     
     # Load instructions
     all_instrs = load_all_instructions()

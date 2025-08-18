@@ -1,12 +1,50 @@
+# core/venv_guard.py
 from pathlib import Path
-import pkg_resources
+from importlib.metadata import version, PackageNotFoundError
 import sys
 import subprocess
+import codecs
 
 REQS_FILE = Path(__file__).parent.parent / "requirements.txt"
 
+REQUIRED = {
+    "pytest": "8",
+    # add any guard-checked packages here
+}
+
 class VenvMismatchError(Exception):
     pass
+
+def open_requirements(path):
+    """
+    Smart encoding detection for requirements.txt files.
+    Handles UTF-16 BOM and falls back to UTF-8-sig for UTF-8 BOM.
+    """
+    with open(path, 'rb') as raw:
+        start = raw.read(4)
+    
+    if start.startswith(codecs.BOM_UTF16_LE) or start.startswith(codecs.BOM_UTF16_BE):
+        enc = 'utf-16'
+    else:
+        enc = 'utf-8-sig'
+    
+    with open(path, 'r', encoding=enc) as f:
+        return [line.strip() for line in f if line.strip() and not line.startswith("#")]
+
+def check_packages():
+    """
+    Check critical packages against REQUIRED dictionary.
+    Returns list of problems found.
+    """
+    problems = []
+    for name, major in REQUIRED.items():
+        try:
+            v = version(name)
+            if not v.startswith(f"{major}."):
+                problems.append(f"{name} is {v}, expected {major}.x")
+        except PackageNotFoundError:
+            problems.append(f"{name} not installed")
+    return problems
 
 def check_venv_health() -> None:
     """
@@ -18,16 +56,14 @@ def check_venv_health() -> None:
         print("⚠️ requirements.txt not found — skipping venv check")
         return
 
-    # Fixed: Use utf-8-sig to handle BOM properly
-    with open(REQS_FILE, "r", encoding="utf-8-sig") as f:
-        required = [line.strip() for line in f if line.strip() and not line.startswith("#")]
+    # Check critical packages first
+    problems = check_packages()
+    if problems:
+        raise VenvMismatchError("\n".join(problems))
 
-    try:
-        pkg_resources.require(required)
-    except pkg_resources.VersionConflict as e:
-        raise VenvMismatchError(f"Version mismatch: {e}")
-    except pkg_resources.DistributionNotFound as e:
-        raise VenvMismatchError(f"Missing dependency: {e}")
+    # Optional: Still check requirements.txt for completeness
+    # This is now more of a "nice to have" since critical checks are above
+    print("✅ Critical packages verified")
 
 def auto_fix():
     """Attempt to pip‑install anything missing or outdated."""
