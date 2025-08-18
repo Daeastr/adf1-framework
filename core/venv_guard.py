@@ -18,13 +18,16 @@ def check_venv_health() -> None:
         print("⚠️ requirements.txt not found — skipping venv check")
         return
 
-    with open(REQS_FILE, "r", encoding="utf-8") as f:
+    # Fixed: Use utf-8-sig to handle BOM properly
+    with open(REQS_FILE, "r", encoding="utf-8-sig") as f:
         required = [line.strip() for line in f if line.strip() and not line.startswith("#")]
 
     try:
         pkg_resources.require(required)
-    except pkg_resources.ResolutionError as e:
-        raise VenvMismatchError(str(e))
+    except pkg_resources.VersionConflict as e:
+        raise VenvMismatchError(f"Version mismatch: {e}")
+    except pkg_resources.DistributionNotFound as e:
+        raise VenvMismatchError(f"Missing dependency: {e}")
 
 def auto_fix():
     """Attempt to pip‑install anything missing or outdated."""
