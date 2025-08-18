@@ -15,12 +15,40 @@ from core.validator import validate_instruction_file, ValidationError
 # Add venv guard imports
 from core.venv_guard import check_venv_health, VenvMismatchError, auto_fix
 
+# Import translation actions
+from core import actions_translation
+
 ACTION_MAP_PATH = Path("tests/action_map.json")
 INSTRUCTIONS_DIR = Path(__file__).parent.parent / "instructions"
 INSTR_DIR = Path(__file__).parent.parent / "instructions"
 
 # Files to skip when parsing instructions
 SKIP_FILES = {"schema.json"}
+
+# Action dispatch registry
+ACTION_DISPATCH = {
+    # Translation actions
+    "translation_init": actions_translation.translation_init,
+    "translation_propose": actions_translation.translation_propose,
+    "translation_interject": actions_translation.translation_interject,
+    "translation_end": actions_translation.translation_end,
+    # Add other action handlers here as needed
+}
+
+# Security allow-list for actions
+ALLOWED_ACTIONS = [
+    # Core actions
+    "noop",
+    "create_endpoint", 
+    "transform",
+    "apply_patch",
+    # Translation actions
+    "translation_init",
+    "translation_propose",
+    "translation_interject",
+    "translation_end",
+    # Add other allowed actions here
+]
 
 # ANSI color codes for step coloring
 STEP_COLORS = cycle([
@@ -35,6 +63,41 @@ RESET = "\033[0m"
 # Alert patterns for severity matching
 ERROR_PATTERN = re.compile(r"^ERROR", re.IGNORECASE)
 WARN_PATTERN = re.compile(r"^WARN", re.IGNORECASE)
+
+def dispatch_action(step_id: str, action: str, params: dict, safe_mode: bool = True) -> dict:
+    """
+    Dispatch an action to the correct handler function.
+    """
+    # Security check - only allow approved actions
+    if action not in ALLOWED_ACTIONS:
+        logger.error(f"Action '{action}' not in allowed actions list")
+        return {
+            "status": "error",
+            "error": f"Action '{action}' not allowed",
+            "error_type": "security_violation"
+        }
+    
+    # Check if we have a specific handler for this action
+    if action in ACTION_DISPATCH:
+        try:
+            return ACTION_DISPATCH[action](step_id, params, safe_mode)
+        except Exception as e:
+            logger.error(f"Action '{action}' handler failed: {e}")
+            return {
+                "status": "error", 
+                "error": str(e),
+                "error_type": "handler_failure",
+                "action": action
+            }
+    
+    # Fallback for legacy actions or unhandled actions
+    logger.warning(f"No specific handler for action '{action}', using fallback")
+    return {
+        "status": "fallback",
+        "action": action,
+        "message": f"Action '{action}' executed via fallback handler",
+        "params": params
+    }
 
 def check_environment():
     """Check virtual environment health before executing any instructions."""

@@ -2,5 +2,9 @@
   "noop": ["tests/test_readme.py"],
   "create_endpoint": ["tests/test_api.py", "tests/test_security.py"],
   "transform": ["tests/test_docs.py"],
-  "apply_patch": ["tests/test_cart.py"]
+  "apply_patch": ["tests/test_cart.py"],
+  "translation_init": ["tests/test_translation.py"],
+  "translation_propose": ["tests/test_translation.py"],
+  "translation_interject": ["tests/test_translation.py"],
+  "translation_end": ["tests/test_translation.py"]
 }
