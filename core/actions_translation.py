@@ -1,216 +1,222 @@
-# Add these to replace the existing stubs at the bottom of core/actions_translation.py
+# Add this import at the top of core/actions_translation.py
+from orchestrator_core import register_action  # adjust import to your orchestrator
 
-def translate_text(step_id: str, params: dict, safe_mode: bool = True) -> dict:
+# Replace the existing function definitions with these registered versions
+
+@register_action("translation_init")
+def translation_init(context):
     """
-    Direct translation of text without session management.
+    Prepare translation environment and initialize session.
     
-    Expected params:
-    - text: Text to translate
-    - source_lang: Source language code (e.g., "en")
-    - target_lang: Target language code (e.g., "es")
-    - context: Optional context for better translation
+    Context should contain:
+    - initiator: User ID who starts the session
+    - partner_type: "person" or "user" 
+    - lang_user1: Source language code (e.g., "en")
+    - lang_user2: Target language code (e.g., "es")
+    - dialog_pairs: Number of expected dialog pairs
+    - start_signal: Signal to begin translation (e.g., "@^2")
+    - pin: Optional PIN for session security
     """
     try:
+        params = context.get("params", {})
+        safe_mode = context.get("safe_mode", True)
+        step_id = context.get("step_id", "translation_init")
+        
         if safe_mode:
-            logger.info(f"[SAFE MODE] Would translate text for {step_id}")
+            logger.info(f"[SAFE MODE] Would initialize translation session for {step_id}")
             result = {
-                "original_text": params.get("text", ""),
-                "translated_text": f"[SAFE MODE] Translated: {params.get('text', '')[:50]}...",
-                "source_lang": params.get("source_lang", "auto"),
-                "target_lang": params.get("target_lang", "en"),
-                "status": "translated_safe_mode",
-                "confidence": 0.95
+                "status": "init_stub",
+                "details": "Translation init placeholder - safe mode",
+                "session_id": f"mock_session_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                "initiator": params.get("initiator"),
+                "lang_pair": f"{params.get('lang_user1', 'en')} → {params.get('lang_user2', 'es')}",
+                "dialog_pairs": params.get("dialog_pairs", 2),
+                "start_signal": params.get("start_signal", "@^2")
             }
         else:
-            # TODO: Implement actual translation logic
-            translated = _engine.translate_direct(
-                text=params.get("text"),
-                source_lang=params.get("source_lang", "auto"),
-                target_lang=params.get("target_lang", "en"),
-                context=params.get("context")
-            )
-            
-            result = {
-                "original_text": params.get("text"),
-                "translated_text": translated["text"],
-                "source_lang": translated["detected_lang"],
-                "target_lang": params.get("target_lang"),
-                "status": "translated",
-                "confidence": translated.get("confidence", 0.0)
-            }
-        
-        logger.info(f"Text translation completed for {step_id}")
-        return _log_step(step_id, result)
-        
-    except Exception as e:
-        logger.error(f"Text translation failed for {step_id}: {e}")
-        error_result = {
-            "status": "error",
-            "error": str(e),
-            "error_type": "translate_text_failed",
-            "original_text": params.get("text", "")
-        }
-        return _log_step(step_id, error_result)
-
-
-def init_dual_party_session(step_id: str, params: dict, safe_mode: bool = True) -> dict:
-    """
-    Initialize a two-party translation session with both participants.
-    
-    Expected params:
-    - user1_id: First participant ID
-    - user2_id: Second participant ID
-    - lang_user1: Language for user 1
-    - lang_user2: Language for user 2
-    - session_name: Optional session name
-    - privacy_mode: Whether to enable private mode
-    """
-    try:
-        if safe_mode:
-            logger.info(f"[SAFE MODE] Would initialize dual party session for {step_id}")
-            result = {
-                "session_id": f"dual_mock_session_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-                "user1_id": params.get("user1_id"),
-                "user2_id": params.get("user2_id"),
-                "lang_pair": f"{params.get('lang_user1', 'en')} ↔ {params.get('lang_user2', 'es')}",
-                "session_name": params.get("session_name", "Dual Translation Session"),
-                "privacy_mode": params.get("privacy_mode", False),
-                "status": "dual_initialized_safe_mode",
-                "participants_connected": 2
-            }
-        else:
-            # TODO: Implement actual dual party session logic
-            session_id = _engine.create_dual_session(
-                user1_id=params.get("user1_id"),
-                user2_id=params.get("user2_id"),
+            session_id = _engine.create_session(
+                initiator=params.get("initiator"),
+                partner_type=params.get("partner_type", "person"),
                 lang_user1=params.get("lang_user1", "en"),
                 lang_user2=params.get("lang_user2", "es"),
-                session_name=params.get("session_name"),
-                privacy_mode=params.get("privacy_mode", False)
+                dialog_pairs=params.get("dialog_pairs", 2),
+                start_signal=params.get("start_signal", "@^2"),
+                pin=params.get("pin")
             )
             
             result = {
+                "status": "initialized",
+                "details": "Translation session successfully initialized",
                 "session_id": session_id,
-                "user1_id": params.get("user1_id"),
-                "user2_id": params.get("user2_id"),
-                "lang_pair": f"{params.get('lang_user1')} ↔ {params.get('lang_user2')}",
-                "session_name": params.get("session_name"),
-                "privacy_mode": params.get("privacy_mode", False),
-                "status": "dual_initialized",
-                "participants_connected": 2
+                "initiator": params.get("initiator"),
+                "lang_pair": f"{params.get('lang_user1')} → {params.get('lang_user2')}",
+                "dialog_pairs": params.get("dialog_pairs"),
+                "start_signal": params.get("start_signal")
             }
         
-        logger.info(f"Dual party session initialized: {result['session_id']}")
+        logger.info(f"Translation session initialized: {result.get('session_id')}")
         return _log_step(step_id, result)
         
     except Exception as e:
-        logger.error(f"Dual party session init failed for {step_id}: {e}")
-        error_result = {
+        logger.error(f"Translation init failed: {e}")
+        return {
             "status": "error",
-            "error": str(e),
-            "error_type": "dual_session_init_failed"
+            "details": f"Translation init failed: {str(e)}",
+            "error_type": "translation_init_failed"
         }
-        return _log_step(step_id, error_result)
 
 
-def recalibrate_translation(step_id: str, params: dict, safe_mode: bool = True) -> dict:
+@register_action("translation_process")
+def translation_process(context):
     """
-    Recalibrate translation quality based on user feedback.
+    Process translation request and handle text segments.
     
-    Expected params:
+    Context should contain:
     - session_id: Active translation session ID
-    - feedback_type: Type of feedback ("quality", "accuracy", "style")
-    - rating: Numeric rating (1-5 or 1-10)
-    - corrections: List of correction examples
-    - preferences: User preference adjustments
+    - text: Text to process/translate
+    - segment_id: Optional segment identifier
+    - processing_type: Type of processing ("translate", "review", "refine")
     """
     try:
+        params = context.get("params", {})
+        safe_mode = context.get("safe_mode", True)
+        step_id = context.get("step_id", "translation_process")
+        
         if safe_mode:
-            logger.info(f"[SAFE MODE] Would recalibrate translation for {step_id}")
+            logger.info(f"[SAFE MODE] Would process translation for {step_id}")
             result = {
+                "status": "process_stub",
+                "details": "Translation process placeholder - safe mode",
                 "session_id": params.get("session_id"),
-                "feedback_type": params.get("feedback_type", "quality"),
-                "rating": params.get("rating", 5),
-                "corrections_applied": len(params.get("corrections", [])),
-                "calibration_score": 0.85,
-                "status": "recalibrated_safe_mode",
-                "improvements": [
-                    "Adjusted formality level",
-                    "Updated terminology preferences",
-                    "Enhanced context awareness"
-                ]
+                "text": params.get("text", ""),
+                "segment_id": params.get("segment_id"),
+                "processing_type": params.get("processing_type", "translate"),
+                "processed_text": f"[SAFE MODE] Processed: {params.get('text', '')[:50]}...",
+                "timestamp": datetime.now().isoformat()
             }
         else:
-            # TODO: Implement actual recalibration logic
-            calibration = _engine.recalibrate_session(
+            processed = _engine.process_translation(
                 session_id=params.get("session_id"),
-                feedback_type=params.get("feedback_type", "quality"),
-                rating=params.get("rating"),
-                corrections=params.get("corrections", []),
-                preferences=params.get("preferences", {})
+                text=params.get("text"),
+                segment_id=params.get("segment_id"),
+                processing_type=params.get("processing_type", "translate")
             )
             
             result = {
+                "status": "processed",
+                "details": "Translation processing completed successfully",
                 "session_id": params.get("session_id"),
-                "feedback_type": params.get("feedback_type"),
-                "rating": params.get("rating"),
-                "corrections_applied": len(params.get("corrections", [])),
-                "calibration_score": calibration.get("score", 0.0),
-                "status": "recalibrated",
-                "improvements": calibration.get("improvements", [])
+                "text": params.get("text"),
+                "segment_id": params.get("segment_id"),
+                "processing_type": params.get("processing_type"),
+                "processed_text": processed["text"],
+                "timestamp": datetime.now().isoformat(),
+                "quality_score": processed.get("quality_score", 0.0)
             }
         
-        logger.info(f"Translation recalibrated for session: {params.get('session_id')}")
+        logger.info(f"Translation processing completed for {step_id}")
         return _log_step(step_id, result)
         
     except Exception as e:
-        logger.error(f"Translation recalibration failed for {step_id}: {e}")
-        error_result = {
+        logger.error(f"Translation processing failed: {e}")
+        return {
             "status": "error",
-            "error": str(e),
-            "error_type": "recalibration_failed",
-            "session_id": params.get("session_id")
+            "details": f"Translation process failed: {str(e)}",
+            "error_type": "translation_process_failed"
         }
-        return _log_step(step_id, error_result)
 
 
-# Update the TRANSLATION_ACTIONS registry to include the new functions
-TRANSLATION_ACTIONS.update({
-    "translate_text": translate_text,
-    "init_dual_party_session": init_dual_party_session,
-    "recalibrate_translation": recalibrate_translation
-})
-# core/actions_translation.py
-
-def translation_init(params=None, context=None):
+@register_action("translation_finalize")
+def translation_finalize(context):
     """
-    Stub handler for 'translation_init'.
-    Currently a safe no‑op placeholder.
+    Finalize translation and return formatted output.
+    
+    Context should contain:
+    - session_id: Active translation session ID
+    - output_format: Desired output format ("text", "json", "xml", "csv")
+    - include_metadata: Whether to include translation metadata
+    - quality_check: Whether to perform final quality check
     """
-    return {
-        "status": "ok",
-        "message": "translation_init stub executed",
-        "params": params or {}
-    }
+    try:
+        params = context.get("params", {})
+        safe_mode = context.get("safe_mode", True)
+        step_id = context.get("step_id", "translation_finalize")
+        
+        if safe_mode:
+            logger.info(f"[SAFE MODE] Would finalize translation for {step_id}")
+            result = {
+                "status": "finalize_stub",
+                "details": "Translation finalize placeholder - safe mode",
+                "session_id": params.get("session_id"),
+                "output_format": params.get("output_format", "text"),
+                "include_metadata": params.get("include_metadata", True),
+                "quality_check": params.get("quality_check", True),
+                "final_output": "[SAFE MODE] Finalized translation output would appear here",
+                "word_count": 150,
+                "final_quality_score": 0.92,
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            finalized = _engine.finalize_translation(
+                session_id=params.get("session_id"),
+                output_format=params.get("output_format", "text"),
+                include_metadata=params.get("include_metadata", True),
+                quality_check=params.get("quality_check", True)
+            )
+            
+            result = {
+                "status": "finalized",
+                "details": "Translation finalization completed successfully",
+                "session_id": params.get("session_id"),
+                "output_format": params.get("output_format"),
+                "include_metadata": params.get("include_metadata"),
+                "quality_check": params.get("quality_check"),
+                "final_output": finalized["output"],
+                "word_count": finalized.get("word_count", 0),
+                "final_quality_score": finalized.get("quality_score", 0.0),
+                "timestamp": datetime.now().isoformat(),
+                "metadata": finalized.get("metadata", {}) if params.get("include_metadata") else None
+            }
+        
+        logger.info(f"Translation finalized for {step_id}")
+        return _log_step(step_id, result)
+        
+    except Exception as e:
+        logger.error(f"Translation finalization failed: {e}")
+        return {
+            "status": "error",
+            "details": f"Translation finalize failed: {str(e)}",
+            "error_type": "translation_finalize_failed"
+        }
 
 
-def translation_process(params=None, context=None):
-    """
-    Stub handler for 'translation_process'.
-    """
-    return {
-        "status": "ok",
-        "message": "translation_process stub executed",
-        "params": params or {}
-    }
+# Register additional existing actions for completeness
+@register_action("translation_propose")
+def translation_propose_registered(context):
+    """Wrapper for existing translation_propose function."""
+    params = context.get("params", {})
+    safe_mode = context.get("safe_mode", True)
+    step_id = context.get("step_id", "translation_propose")
+    return translation_propose(step_id, params, safe_mode)
 
 
-def translation_finalize(params=None, context=None):
-    """
-    Stub handler for 'translation_finalize'.
-    """
-    return {
-        "status": "ok",
-        "message": "translation_finalize stub executed",
-        "params": params or {}
-    }
+@register_action("translation_interject")
+def translation_interject_registered(context):
+    """Wrapper for existing translation_interject function."""
+    params = context.get("params", {})
+    safe_mode = context.get("safe_mode", True)
+    step_id = context.get("step_id", "translation_interject")
+    return translation_interject(step_id, params, safe_mode)
+
+
+@register_action("translation_end")
+def translation_end_registered(context):
+    """Wrapper for existing translation_end function."""
+    params = context.get("params", {})
+    safe_mode = context.get("safe_mode", True)
+    step_id = context.get("step_id", "translation_end")
+    return translation_end(step_id, params, safe_mode)
+
+
+# Note: You can remove the TRANSLATION_ACTIONS dictionary if using decorator registration
+# The orchestrator will handle action dispatch through the @register_action decorators
