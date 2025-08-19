@@ -1,7 +1,7 @@
 // src/extension.ts
 import * as vscode from "vscode";
 import * as path from "path";
-import { spawn } from "child_process";
+import * as cp from "child_process"; // Import child_process
 
 // Adjust to point to your orchestrator entry point
 const ORCHESTRATOR_MODULE = path.join(
@@ -38,6 +38,35 @@ function getLogPathsForStep(item: any): string[] {
 }
 
 export function activate(context: vscode.ExtensionContext) {
+
+    // NEW: Register the Run App Build command
+    context.subscriptions.push(
+        vscode.commands.registerCommand('aadf.runAppBuild', () => {
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            if (!workspaceFolder) {
+                vscode.window.showErrorMessage("No workspace folder open. Cannot run build.");
+                return;
+            }
+
+            vscode.window.showInformationMessage("Starting AADF App Build Orchestrator...");
+
+            try {
+                // Execute the orchestrator script synchronously
+                // The output will appear in the VS Code Debug Console
+                cp.execSync('python -m core.orchestrator', {
+                    cwd: workspaceFolder.uri.fsPath, // Run from the root of the workspace
+                    stdio: 'inherit', // Pipe output to the parent process (VS Code)
+                    encoding: 'utf-8'
+                });
+                vscode.window.showInformationMessage("AADF App Build Orchestrator finished.");
+            } catch (error) {
+                vscode.window.showErrorMessage(`AADF App Build failed. Check the Debug Console for details.`);
+                console.error("Error running App Build Orchestrator:", error);
+            }
+        })
+    );
+
+
     // Register the log alert command to receive alerts from Python
     context.subscriptions.push(
         vscode.commands.registerCommand('aadf.showLogAlert', (alertData: string) => {
@@ -132,5 +161,4 @@ export function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() {
     // Clean‑up if necessary
-}```
-
+}
