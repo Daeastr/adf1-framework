@@ -1,0 +1,37 @@
+from typing import List
+from .agents import BaseAgent
+from .translation_engine import translate_text  # your existing engine fn
+
+class TranslationAgent(BaseAgent):
+    name = "translation"
+    allowed_tools: List[str] = []  # FIG 2: start tool‑less; hook later if needed
+
+    def can_handle(self, task: str) -> bool:
+        task_l = task.lower()
+        # naive trigger words; refine later
+        return any(k in task_l for k in [
+            "translate", "translation", "language", "to english", "to french",
+            "english to", "spanish to", "french to"
+        ])
+
+    def plan(self, task: str, context: dict) -> dict:
+        # FIG 2 simple plan: analyze → translate → return
+        return {
+            "steps": [
+                "detect source/target languages",
+                "call translation_engine",
+                "return translated text"
+            ]
+        }
+
+    def act(self, plan: dict, llm, tools, task: str, context: dict) -> str:
+        # naive parse: expect 'translate <text> to <lang>'
+        parts = task.split(" to ")
+        if len(parts) == 2:
+            text, tgt_lang = parts
+            src_lang = None  # let engine auto‑detect
+        else:
+            text, tgt_lang, src_lang = task, "english", None
+
+        result = translate_text(text.strip(), src_lang, tgt_lang.strip())
+        return result
