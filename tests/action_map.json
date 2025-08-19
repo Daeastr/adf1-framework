@@ -1,13 +1,5 @@
 {
-  "noop": "tests.test_readme.noop",
-  "validate": "tests.test_validator.validate",
-  "translation_init": "core.actions_translation.translation_init",
-  "translation_process": "core.actions_translation.translation_process",
-  "translation_finalize": "core.actions_translation.translation_finalize",
-  "translation_propose": "core.actions_translation.translation_propose_registered",
-  "translation_interject": "core.actions_translation.translation_interject_registered",
-  "translation_end": "core.actions_translation.translation_end_registered",
-  "translate_text": "core.actions_translation.translate_text",
-  "init_dual_party_session": "core.actions_translation.init_dual_party_session",
-  "recalibrate_translation": "core.actions_translation.recalibrate_translation"
+  "translation_init": ["tests/test_translation_init.py"],
+  "translation_process": ["tests/test_translation_process.py"],
+  "translation_finalize": ["tests/test_translation_finalize.py"]
 }

@@ -39,7 +39,7 @@ function getLogPathsForStep(item: any): string[] {
 
 export function activate(context: vscode.ExtensionContext) {
 
-    // NEW: Register the Run App Build command
+    // This command fulfills the request to run the orchestrator
     context.subscriptions.push(
         vscode.commands.registerCommand('aadf.runAppBuild', () => {
             const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -80,7 +80,7 @@ export function activate(context: vscode.ExtensionContext) {
                     if (level === 'error') {
                         vscode.window.showErrorMessage(`❌ [${step}] ${message}`);
                     } else if (level === 'warn') {
-                        vscode.window.showWarningMessage(`⚠️ [${step}] ${message}`);
+                        vscode.window.showWarningMessage(`⚠️ [step}] ${message}`);
                     }
                 } else {
                     console.error('Invalid alert data format:', alertData);
