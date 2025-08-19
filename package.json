@@ -1,0 +1,19 @@
+package.json additions:
+
+json
+"contributes": {
+  "commands": [
+    {
+      "command": "aadf.showWorkflowStatus",
+      "title": "ADF1: Show Workflow Status"
+    }
+  ],
+  "views": {
+    "explorer": [
+      {
+        "id": "aadfWorkflowStatus",
+        "name": "ADF1 Workflow Status"
+      }
+    ]
+  }
+}

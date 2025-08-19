@@ -132,5 +132,5 @@ export function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() {
     // Clean‑up if necessary
-}
+}```
 

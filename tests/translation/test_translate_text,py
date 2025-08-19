@@ -1,0 +1,3 @@
+# tests/translation/test_translate_text.py
+def test_stub_translate_text():
+    assert True
