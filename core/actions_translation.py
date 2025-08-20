@@ -1,20 +1,34 @@
 # core/actions_translation.py
 from core.orchestrator import register_action
 
+@register_action("translation_init")
+def translation_init(context):
+    """Stub handler for translation_init — safe placeholder."""
+    return {
+        "status": "ok",
+        "data": {
+            "source_language": None,
+            "target_language": None,
+            "translation_service": "default",
+            "confidence_threshold": 0.8
+        }
+    }
+
 @register_action("translate_text")
-def translate_text(context):
-    text = context.get("text", "")
-    src_lang = context.get("source_language", "en")
-    tgt_lang = context.get("target_language", "es")
-
-    # Mock transform — reverse text and mark as MOCKED
-    translated = f"[MOCKED from {src_lang} to {tgt_lang}] {text[::-1]}"
-
+def translate_text(params, context):
+    """
+    Mock translation: reverses the text and tags it with a marker.
+    Safe offline demo for cockpit visibility.
+    """
+    text = params.get("text", "")
+    source = context.get("source_language", "en")
+    target = context.get("target_language", "es")
+    translated = text[::-1]  # reverse string for mock demo
     return {
         "status": "ok",
         "original": text,
-        "translated": translated,
-        "source_language": src_lang,
-        "target_language": tgt_lang,
+        "translated": f"[MOCK from {source} to {target}] {translated}",
+        "source_language": source,
+        "target_language": target,
         "confidence": 0.95
     }
