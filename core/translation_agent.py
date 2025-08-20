@@ -1,19 +1,45 @@
 # core/translation_agent.py
+from __future__ import annotations
+from typing import Optional, Dict
 from .agent_base import BaseAgent
-from .translation_engine import translate_text  # adjust if named differently
+from .translation_engine import TranslationEngine, get_engine, TranslationResult
 
-class TranslationAgent(BaseAgent):
-    """Coordinates translation requests inside the delegation framework."""
+class TranslationAgent(Base.Agent):
+    """
+    Agent responsible for coordinating translation requests
+    within the delegation framework.
+    """
 
-    def __init__(self, name="TranslationAgent", **kwargs):
+    def __init__(
+        self,
+        name: str = "TranslationAgent",
+        engine: Optional[TranslationEngine] = None,
+        **kwargs
+    ):
         super().__init__(name, **kwargs)
+        # Fallback to default/mock engine if none provided
+        self.engine = engine or get_engine("mock", context={})
 
-    def can_handle(self, task: str) -> bool:
-        return task.strip().lower().startswith("translate")
+    def run(
+        self,
+        text: str,
+        target_language: str,
+        source_language: Optional[str] = None,
+        glossary: Optional[Dict[str, str]] = None
+    ) -> TranslationResult:
+        """
+        Execute a translation request via the configured engine.
 
-    def plan(self, task: str, context: dict) -> dict:
-        return {"task": task, "context": context}
-
-    def act(self, plan: dict, *_args, **_kwargs) -> str:
-        text = plan["task"].replace("translate", "").strip()
-        return translate_text(text, target_language="fr")  # adjust as needed
+        :param text: The text to translate.
+        :param target_language: Target language code (e.g., 'es').
+        :param source_language: Optional source language code; if None, engine may auto-detect.
+        :param glossary: Optional term replacements for domain-specific translation.
+        :return: TranslationResult containing original, translated, languages, confidence.
+        """
+        # Here you can expand with logging, rollback hooks, or artifact writes
+        return self.engine.translate(
+            text=text,
+            src=source_language or "auto",
+            tgt=target_language,
+            glossary=glossary
+        )
