@@ -1,4 +1,3 @@
-# tests/test_translate_text_real.py
 from core.orchestrator import call_action, create_context
 
 def test_translate_text_real_mock():

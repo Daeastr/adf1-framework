@@ -47,4 +47,4 @@ def translate_text(context):
         "confidence": result.confidence,
     }
     logger.info("[translate_text] Exit: %s", payload)
-    return payload
+    return payload```
