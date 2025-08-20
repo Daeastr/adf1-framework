@@ -1,5 +1,5 @@
 # core/actions_translation.py
-from core.orchestrator import register_action
+from core.orchestrator import register_action, call_action
 from datetime import datetime, timezone
 from core.translation_engine import get_engine
 import logging
@@ -28,6 +28,26 @@ def translation_init(context):
         "meta": _create_meta_block()
     }
 
+@register_action("translation_process")
+def translation_process(context):
+    """
+    Delegates to `translate_text` for single or batch translation.
+    Still uses the mock engine for reproducibility.
+    """
+    # Single text mode
+    if "text" in context:
+        return call_action("translate_text", context)
+
+    # Batch mode
+    if "batch" in context and isinstance(context["batch"], list):
+        results = []
+        for text in context["batch"]:
+            batch_ctx = dict(context, text=text)
+            results.append(call_action("translate_text", batch_ctx))
+        return {"status": "ok", "results": results}
+
+    return {"status": "error", "message": "No text or batch provided"}
+
 @register_action("translate_text")
 def translate_text(context):
     text = context.get("text", "")
@@ -47,4 +67,4 @@ def translate_text(context):
         "confidence": result.confidence,
     }
     logger.info("[translate_text] Exit: %s", payload)
-    return payload```
+    return payload
