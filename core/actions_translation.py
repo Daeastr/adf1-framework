@@ -1,10 +1,42 @@
 # core/actions_translation.py
-from core.orchestrator import register_action, call_action
-from datetime import datetime, timezone
-from core.translation_engine import get_engine
+import os
+import requests
 import logging
+from datetime import datetime, timezone
+from core.orchestrator import register_action, call_action
+from core.translation_engine import get_engine
+
 
 logger = logging.getLogger(__name__)
+
+# --- New Functionality: Dynamic Language Support ---
+
+SUPPORTED_LANGS_STATIC = ["en", "es", "fr", "de"]
+
+def get_supported_languages():
+    api_key = os.getenv("GEMINI_API_KEY")
+    provider_url = "https://api.gemini.example/v1/languages"  # swap to real endpoint
+
+    if not api_key:
+        logger.warning("[get_supported_languages] No API key — using static list")
+        return SUPPORTED_LANGS_STATIC
+
+    try:
+        resp = requests.get(
+            provider_url,
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=5
+        )
+        resp.raise_for_status()
+        langs = resp.json().get("languages", [])
+        logger.info("[get_supported_languages] Fetched %d languages", len(langs))
+        return langs or SUPPORTED_LANGS_STATIC
+    except Exception as e:
+        logger.error("[get_supported_languages] Call failed: %s — fallback", e)
+        return SUPPORTED_LANGS_STATIC
+
+
+# --- Existing Actions ---
 
 def _create_meta_block():
     """Helper to create a standardized metadata block for action returns."""
