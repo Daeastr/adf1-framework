@@ -4,8 +4,11 @@ import re
 import time
 from pathlib import Path
 from itertools import islice
+from collections import Counter
 
-# --- New ANSI Color Formatting for Speed Tags ---
+# ... (functions format_speed_tag, classify_speed, format_log_line, HIGHLIGHT_PATTERNS, _highlight_severity, _preview_log remain the same) ...
+
+# --- ANSI Color Formatting for Speed Tags ---
 
 SPEED_COLORS = {
     "FAST": "\033[92m",   # green
@@ -38,7 +41,6 @@ def format_log_line(step_name, status, message, start_time=None):
         elapsed_seconds = time.time() - start_time
         speed_tag = classify_speed(elapsed_seconds)
         
-        # Use the new color formatting function for the speed tag
         formatted_tag = format_speed_tag(speed_tag)
         
         label_str = f" [{elapsed_seconds:.2f}s]"
@@ -48,8 +50,7 @@ def format_log_line(step_name, status, message, start_time=None):
         
     return f"{status} {step_name}{elapsed_label} — {message}"
 
-
-# --- Existing Severity Highlighting Logic (for Markdown) ---
+# --- Severity Highlighting Logic (for Markdown) ---
 
 HIGHLIGHT_PATTERNS = {
     r"\bERROR\b": "🔴 ERROR",
@@ -63,7 +64,7 @@ def _highlight_severity(text: str) -> str:
         text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
     return text
 
-# --- Existing Helper Functions (for Markdown) ---
+# --- Helper Functions (for Markdown) ---
 
 def _preview_log(path: str, lines: int = 3, collapse_after: int = 5) -> str:
     """Return the first N lines from a log file; collapse if it exceeds collapse_after."""
@@ -86,49 +87,93 @@ def _preview_log(path: str, lines: int = 3, collapse_after: int = 5) -> str:
         return ""
 
 
-# --- Main Reporting Logic (for Markdown) ---
+# --- New Aggregation and Rendering Logic ---
+
+def aggregate_by_tier(steps):
+    """
+    steps: iterable of dicts with keys: severity, elapsed, performance_tier
+    Returns: dict with counts + % breakdown
+    """
+    step_list = list(steps)
+    total = len(step_list) or 1
+    counts = Counter()
+
+    for s in step_list:
+        tier = s.get("performance_tier", "").upper()
+        severity = s.get("severity", "").upper()
+        if tier in ("FAST", "SLOW"):
+            counts[tier] += 1
+        if severity in ("WARNING", "ERROR", "FAIL"):
+            counts[severity] += 1
+
+    def pct(count):
+        return round((count / total) * 100, 1)
+
+    return [
+        {"label": "🟢 FAST", "count": counts.get("FAST", 0), "pct": pct(counts.get("FAST", 0))},
+        {"label": "🔴 SLOW", "count": counts.get("SLOW", 0), "pct": pct(counts.get("SLOW", 0))},
+        {"label": "⚠️ WARNINGS", "count": counts.get("WARNING", 0), "pct": pct(counts.get("WARNING", 0))},
+        {"label": "🔴 ERROR/FAIL", "count": counts.get("ERROR", 0) + counts.get("FAIL", 0),
+         "pct": pct(counts.get("ERROR", 0) + counts.get("FAIL", 0))},
+    ]
+
+def render_aggregation_table(rows):
+    """Renders the aggregation data into a Markdown table."""
+    md = ["\n### 🗂️ Summary\n", "| Tier / Severity | Count | % of Steps |", "|-----------------|-------|------------|"]
+    for r in rows:
+        md.append(f"| {r['label']} | {r['count']} | {r['pct']}% |")
+    return "\n".join(md) + "\n"
+
+
+# --- Main Reporting Function ---
 
 def generate_run_summary(run_results: list) -> str:
     """
-    Generates a Markdown summary of an orchestrator run, including log previews.
+    Generates a full Markdown summary of an orchestrator run, including an
+    aggregation table and step-by-step details with log previews.
     """
-    lines = ["### Orchestrator Run Summary", "---"]
-    total_duration = 0.0
-    errors = 0
-
+    header = "###  Orchestrator Run Summary"
+    
     if not run_results:
-        lines.append("No steps were executed.")
-        return "\n".join(lines)
+        return f"{header}\n---\nNo steps were executed."
 
+    # --- 1. Enrich data for aggregation ---
+    enriched_steps = []
+    for result in run_results:
+        duration = result.get("duration_sec", 0.0)
+        enriched_steps.append({
+            "severity": result.get("status", "unknown"),
+            "performance_tier": classify_speed(duration),
+        })
+
+    # --- 2. Generate the summary table ---
+    summary_rows = aggregate_by_tier(enriched_steps)
+    table_md = render_aggregation_table(summary_rows)
+
+    # --- 3. Generate the detailed per-step section ---
+    step_lines = ["\n### 📋 Step Details\n"]
     for i, step_result in enumerate(run_results):
         step_id = step_result.get("id", f"step-{i+1}")
         status = step_result.get("status", "unknown").upper()
         duration = step_result.get("duration_sec", 0.0)
-        total_duration += duration
-
         icon = "✅" if status == "OK" else "❌"
-        if status != "OK":
-            errors += 1
 
-        lines.append(f"**{icon} {step_id}** ({duration}s) - Status: `{status}`")
+        step_lines.append(f"**{icon} {step_id}** ({duration}s) - Status: `{status}`")
         
         if step_result.get("log_file"):
             filename = Path(step_result["log_file"]).name
             run_id = os.getenv("GITHUB_RUN_ID")
             repo = os.getenv("GITHUB_REPOSITORY")
-            
-            preview = _preview_log(step_result["log_file"], lines=3, collapse_after=5)
+            preview = _preview_log(step_result["log_file"])
 
             if run_id and repo:
                 url = f"https://github.com/{repo}/actions/runs/{run_id}"
-                lines.append(f"  ↳ [Log saved to artifacts: {filename}]({url})")
+                step_lines.append(f"  ↳ [Log saved to artifacts: {filename}]({url})")
             else:
-                lines.append(f"  ↳ Log saved to artifacts: `{filename}`")
+                step_lines.append(f"  ↳ Log saved to artifacts: `{filename}`")
             
             if preview:
-                lines.append(f"    {preview}")
-
-    summary_icon = "✅" if errors == 0 else "❌"
-    lines.insert(2, f"**{summary_icon} Overall Status:** {len(run_results)} steps completed in {total_duration:.2f}s with {errors} errors.\n")
-
-    return "\n".join(lines)
+                step_lines.append(f"    {preview}")
+    
+    # --- 4. Combine all parts into the final report ---
+    return "\n".join([header, "---", table_md, "\n".join(step_lines)])
