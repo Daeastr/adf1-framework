@@ -1,10 +1,21 @@
 # core/reporting.py
 import os
 import re
+import time
 from pathlib import Path
 from itertools import islice
 
-# --- New Severity Highlighting Logic ---
+# --- New Helper for Formatted Live Logging ---
+
+def format_log_line(step_name, status, message, start_time=None):
+    # status already includes severity highlighting logic from your last commit
+    elapsed = ""
+    if start_time:
+        elapsed = f" [{time.time() - start_time:.2f}s]"
+    return f"{status} {step_name}{elapsed} — {message}"
+
+
+# --- Existing Severity Highlighting Logic ---
 
 HIGHLIGHT_PATTERNS = {
     r"\bERROR\b": "🔴 ERROR",
@@ -26,7 +37,6 @@ def _preview_log(path: str, lines: int = 3, collapse_after: int = 5) -> str:
         with open(path, "r", encoding="utf-8", errors="ignore") as f:
             all_lines = [line.rstrip("\n") for line in f]
         
-        # Apply highlighting to each line before making formatting decisions
         all_lines = [_highlight_severity(line) for line in all_lines]
         
         if len(all_lines) > collapse_after:
@@ -59,6 +69,7 @@ def generate_run_summary(run_results: list) -> str:
     for i, step_result in enumerate(run_results):
         step_id = step_result.get("id", f"step-{i+1}")
         status = step_result.get("status", "unknown").upper()
+        # This is where the duration captured by the executor is retrieved
         duration = step_result.get("duration_sec", 0.0)
         total_duration += duration
 
@@ -66,6 +77,7 @@ def generate_run_summary(run_results: list) -> str:
         if status != "OK":
             errors += 1
 
+        # The duration is already included in the main summary line for each step.
         lines.append(f"**{icon} {step_id}** ({duration}s) - Status: `{status}`")
         
         if step_result.get("log_file"):
@@ -88,22 +100,3 @@ def generate_run_summary(run_results: list) -> str:
     lines.insert(2, f"**{summary_icon} Overall Status:** {len(run_results)} steps completed in {total_duration:.2f}s with {errors} errors.\n")
 
     return "\n".join(lines)
-
-# Example Usage (for demonstration):
-if __name__ == '__main__':
-    # Create a dummy log file with severity keywords to test highlighting
-    artifacts_dir = Path("orchestrator_artifacts")
-    artifacts_dir.mkdir(exist_ok=True)
-    highlight_log_path = artifacts_dir / "highlight.log"
-    highlight_log_path.write_text('Line 1: All good\nLine 2: A minor WARNING occurred\nLine 3: Critical ERROR detected')
-    
-    mock_run_results = [
-        {"id": "highlight-test-step", "status": "error", "duration_sec": 0.1, "log_file": str(highlight_log_path)}
-    ]
-    
-    print("--- Report with Severity Highlighting ---")
-    report = generate_run_summary(mock_run_results)
-    print(report)
-
-    # Clean up dummy file
-    highlight_log_path.unlink()
