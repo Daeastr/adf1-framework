@@ -32,6 +32,23 @@ def get_supported_languages(context=None):
         "data": SUPPORTED_LANGS_STATIC
     }
 
+@register_action("detect_language")
+def detect_language(context, text):
+    """
+    Very simple placeholder: guess language from text length / content.
+    Replace later with real provider call.
+    """
+    # Minimal naive guess – returns 'en' if only ASCII, else 'unknown'
+    guessed_lang = "en" if text.isascii() else "unknown"
+
+    return {
+        "status": "ok",
+        "data": {
+            "detected_language": guessed_lang,
+            "input_sample": text[:30]  # include a short preview
+        }
+    }
+
 @register_action("translation_init")
 def translation_init(context):
     """Stub handler for translation_init — safe placeholder."""
