@@ -30,16 +30,14 @@ def generate_run_summary(run_results: list) -> str:
         if status != "OK":
             errors += 1
 
-        # Build the summary line for this step
+        # This is the normal step summary line
         lines.append(f"**{icon} {step_id}** ({duration}s) - Status: `{status}`")
         
         # --- PATCH APPLIED HERE ---
-        # If a log file was created for the step, add a pointer to it.
-        # This gives reviewers a direct link from the summary to the detailed logs.
+        # Right after the normal summary, we bolt on the log pointer.
         if step_result.get("log_file"):
-            # Show filename only; reviewers know to pull from the "Artifacts" tab.
-            log_filename = Path(step_result['log_file']).name
-            lines.append(f"  ↳ Log saved to artifacts: `{log_filename}`")
+            # Keep PR comment lean — show filename only
+            lines.append(f"  ↳ Log saved to artifacts: `{Path(step_result['log_file']).name}`")
         # --- END PATCH ---
 
     # Add a final summary line
