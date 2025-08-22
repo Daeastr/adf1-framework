@@ -60,6 +60,19 @@ def translation_init(context):
         "meta": _create_meta_block()
     }
 
+@register_action("set_translation_languages")
+def set_translation_languages(context, source_lang, target_lang):
+    """Stub or real setter for translation languages."""
+    context["source_language"] = source_lang
+    context["target_language"] = target_lang
+    return {
+        "status": "ok",
+        "data": {
+            "source_language": source_lang,
+            "target_language": target_lang
+        }
+    }
+
 @register_action("translation_process")
 def translation_process(context):
     """
