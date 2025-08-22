@@ -1,55 +1,75 @@
-"""
-Reporting functions for step summaries and badges.
-"""
-from typing import Dict, Any
+# core/reporting.py
+from pathlib import Path
 
+def generate_run_summary(run_results: list) -> str:
+    """
+    Generates a Markdown summary of an orchestrator run.
 
-def render_step_summary(step: Dict[str, Any]) -> str:
-    """Render a step summary with metadata and logs."""
-    lines = []
-    lines.append(f"### 🧩 Step {step['id']} — {step['action']}")
-
-    # Metadata badges - updated format
-    priority = step.get("priority", "unknown").capitalize()
-    risk = step.get("risk", "unknown").capitalize()
-    lines.append(f"🧭 Priority: {priority} | 🚨 Risk: {risk}")
-
-    # Capabilities display
-    capabilities = step.get("_capabilities", [])
-    if capabilities:
-        lines.append(f"🔐 **Capabilities**: {', '.join(capabilities)}")
-
-    # Agent assignment
-    agent = step.get("_agent", "UnknownAgent")
-    lines.append(f"🤖 **Agent**: `{agent}`")
-
-    # Existing output/logs
-    if "duration_sec" in step:
-        lines.append(f"⏱ Duration: {step['duration_sec']}s")
+    Args:
+        run_results: A list of result dictionaries, one for each step.
     
-    # Updated log file check using .get() method
-    if step.get("log_file"):
-        lines.append(f"[📄 Full Log]({step['log_file']})")
+    Returns:
+        A Markdown-formatted string summarizing the run.
+    """
+    lines = ["### Orchestrator Run Summary", "---"]
+    total_duration = 0.0
+    errors = 0
+
+    if not run_results:
+        lines.append("No steps were executed.")
+        return "\n".join(lines)
+
+    for i, step_result in enumerate(run_results):
+        step_id = step_result.get("id", f"step-{i+1}")
+        status = step_result.get("status", "unknown").upper()
+        duration = step_result.get("duration_sec", 0.0)
+        total_duration += duration
+
+        # Determine status icon
+        icon = "✅" if status == "OK" else "❌"
+        if status != "OK":
+            errors += 1
+
+        # Build the summary line for this step
+        lines.append(f"**{icon} {step_id}** ({duration}s) - Status: `{status}`")
+        
+        # --- PATCH APPLIED HERE ---
+        # If a log file was created for the step, add a pointer to it.
+        # This gives reviewers a direct link from the summary to the detailed logs.
+        if step_result.get("log_file"):
+            # Show filename only; reviewers know to pull from the "Artifacts" tab.
+            log_filename = Path(step_result['log_file']).name
+            lines.append(f"  ↳ Log saved to artifacts: `{log_filename}`")
+        # --- END PATCH ---
+
+    # Add a final summary line
+    summary_icon = "✅" if errors == 0 else "❌"
+    lines.insert(2, f"**{summary_icon} Overall Status:** {len(run_results)} steps completed in {total_duration:.2f}s with {errors} errors.\n")
 
     return "\n".join(lines)
 
-
-def render_step_badges(instruction: dict) -> str:
-    badges = []
-    if "priority" in instruction:
-        p = instruction["priority"].capitalize()
-        pcolor = {"Low": "brightgreen", "Medium": "yellow", "High": "red"}.get(p, "lightgrey")
-        badges.append(f"![Priority: {p}](https://img.shields.io/badge/Priority-{p}-{pcolor})")
-    if "risk" in instruction:
-        r = instruction["risk"].capitalize()
-        rcolor = {"Safe": "brightgreen", "Review": "yellow", "Critical": "red"}.get(r, "lightgrey")
-        badges.append(f"![Risk: {r}](https://img.shields.io/badge/Risk-{r}-{rcolor})")
-    return " ".join(badges)
-
-
-def render_multiple_steps(steps: list) -> str:
-    """Render summaries for multiple steps."""
-    summaries = []
-    for step in steps:
-        summaries.append(render_step_summary(step))
-    return "\n\n".join(summaries)"
+# Example Usage (for demonstration):
+if __name__ == '__main__':
+    mock_run_results = [
+        {
+            "id": "t-init",
+            "status": "ok",
+            "duration_sec": 0.01,
+            "log_file": "orchestrator_artifacts/t-init_step0.log"
+        },
+        {
+            "id": "t-process",
+            "status": "ok",
+            "duration_sec": 0.52,
+            "log_file": "orchestrator_artifacts/t-process_step1.log"
+        },
+        {
+            "id": "t-finalize-failed",
+            "status": "error",
+            "message": "Finalization service unavailable",
+            "duration_sec": 2.15,
+            "log_file": "orchestrator_artifacts/t-finalize-failed_step2.log"
+        }
+    ]
+    report = generate_run_summary(mock_run_results)
+    print(report)
