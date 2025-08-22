@@ -5,17 +5,51 @@ import time
 from pathlib import Path
 from itertools import islice
 
-# --- New Helper for Formatted Live Logging ---
+# --- New ANSI Color Formatting for Speed Tags ---
+
+SPEED_COLORS = {
+    "FAST": "\033[92m",   # green
+    "SLOW": "\033[91m",   # red
+}
+RESET = "\033[0m"
+
+def format_speed_tag(tag: str) -> str:
+    """Wraps a speed tag in ANSI color codes for terminal display."""
+    return f"{SPEED_COLORS.get(tag, '')}{tag}{RESET}" if tag else ""
+
+# --- Helper for Formatted Live Logging with Speed Classification ---
+
+# Thresholds in seconds for performance classification
+FAST_THRESHOLD = 1.0
+SLOW_THRESHOLD = 5.0
+
+def classify_speed(elapsed_seconds: float) -> str:
+    """Classifies the elapsed time into performance buckets."""
+    if elapsed_seconds <= FAST_THRESHOLD:
+        return "FAST"
+    elif elapsed_seconds >= SLOW_THRESHOLD:
+        return "SLOW"
+    return ""  # Mid-range, no specific label needed
 
 def format_log_line(step_name, status, message, start_time=None):
-    # status already includes severity highlighting logic from your last commit
-    elapsed = ""
+    """Formats a log line with status, timing, and a color-coded performance tag."""
+    elapsed_label = ""
     if start_time:
-        elapsed = f" [{time.time() - start_time:.2f}s]"
-    return f"{status} {step_name}{elapsed} — {message}"
+        elapsed_seconds = time.time() - start_time
+        speed_tag = classify_speed(elapsed_seconds)
+        
+        # Use the new color formatting function for the speed tag
+        formatted_tag = format_speed_tag(speed_tag)
+        
+        label_str = f" [{elapsed_seconds:.2f}s]"
+        if formatted_tag:
+            label_str += f" {formatted_tag}"
+        elapsed_label = label_str
+        
+    return f"{status} {step_name}{elapsed_label} — {message}"
 
 
-# --- Existing Severity Highlighting Logic ---
+# --- Existing Severity Highlighting Logic (for Markdown) ---
 
 HIGHLIGHT_PATTERNS = {
     r"\bERROR\b": "🔴 ERROR",
@@ -29,7 +63,7 @@ def _highlight_severity(text: str) -> str:
         text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
     return text
 
-# --- Existing Helper Functions ---
+# --- Existing Helper Functions (for Markdown) ---
 
 def _preview_log(path: str, lines: int = 3, collapse_after: int = 5) -> str:
     """Return the first N lines from a log file; collapse if it exceeds collapse_after."""
@@ -52,7 +86,7 @@ def _preview_log(path: str, lines: int = 3, collapse_after: int = 5) -> str:
         return ""
 
 
-# --- Main Reporting Logic ---
+# --- Main Reporting Logic (for Markdown) ---
 
 def generate_run_summary(run_results: list) -> str:
     """
@@ -69,7 +103,6 @@ def generate_run_summary(run_results: list) -> str:
     for i, step_result in enumerate(run_results):
         step_id = step_result.get("id", f"step-{i+1}")
         status = step_result.get("status", "unknown").upper()
-        # This is where the duration captured by the executor is retrieved
         duration = step_result.get("duration_sec", 0.0)
         total_duration += duration
 
@@ -77,7 +110,6 @@ def generate_run_summary(run_results: list) -> str:
         if status != "OK":
             errors += 1
 
-        # The duration is already included in the main summary line for each step.
         lines.append(f"**{icon} {step_id}** ({duration}s) - Status: `{status}`")
         
         if step_result.get("log_file"):
