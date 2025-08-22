@@ -1,10 +1,25 @@
 # core/reporting.py
 import os
 from pathlib import Path
+from itertools import islice
+
+# --- New Helper Function ---
+
+def _preview_log(path: str, lines: int = 3) -> str:
+    """Return the first N lines from a log file, trimmed for PR display."""
+    try:
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            head = list(islice(f, lines))
+        # Strip trailing newlines/spaces for clean embedding
+        return "".join(head).strip()
+    except OSError:
+        return ""
+
+# --- Main Reporting Logic ---
 
 def generate_run_summary(run_results: list) -> str:
     """
-    Generates a Markdown summary of an orchestrator run.
+    Generates a Markdown summary of an orchestrator run, including log previews.
 
     Args:
         run_results: A list of result dictionaries, one for each step.
@@ -26,32 +41,34 @@ def generate_run_summary(run_results: list) -> str:
         duration = step_result.get("duration_sec", 0.0)
         total_duration += duration
 
-        # Determine status icon
         icon = "✅" if status == "OK" else "❌"
         if status != "OK":
             errors += 1
 
-        # Build the summary line for this step
         lines.append(f"**{icon} {step_id}** ({duration}s) - Status: `{status}`")
         
         # --- PATCH APPLIED HERE ---
-        # The previous simple log pointer is replaced with this CI-aware version.
+        # This block now also extracts and appends a log preview.
         if step_result.get("log_file"):
             filename = Path(step_result["log_file"]).name
             run_id = os.getenv("GITHUB_RUN_ID")
-            repo = os.getenv("GITHUB_REPOSITORY")  # e.g., "Daeastr/adf1-framework"
+            repo = os.getenv("GITHUB_REPOSITORY")
             
+            # Extract a preview from the log file.
+            preview = _preview_log(step_result["log_file"], lines=3)
+
+            # Append the link to the full artifact.
             if run_id and repo:
-                # If running in CI, build a direct link to the run's artifact list.
-                # The log file is inside the orchestrator-step-logs.zip artifact.
                 url = f"https://github.com/{repo}/actions/runs/{run_id}"
                 lines.append(f"  ↳ [Log saved to artifacts: {filename}]({url})")
             else:
-                # Fallback to the plain filename if not in a CI context (e.g., local run).
                 lines.append(f"  ↳ Log saved to artifacts: `{filename}`")
+            
+            # If a preview was extracted, append it in a code block.
+            if preview:
+                lines.append(f"    ```\n{preview}\n    ```")
         # --- END PATCH ---
 
-    # Add a final summary line
     summary_icon = "✅" if errors == 0 else "❌"
     lines.insert(2, f"**{summary_icon} Overall Status:** {len(run_results)} steps completed in {total_duration:.2f}s with {errors} errors.\n")
 
@@ -59,30 +76,23 @@ def generate_run_summary(run_results: list) -> str:
 
 # Example Usage (for demonstration):
 if __name__ == '__main__':
-    # This will demonstrate the fallback behavior since GITHUB_RUN_ID will not be set.
+    # Create dummy log files for the preview function to read
+    artifacts_dir = Path("orchestrator_artifacts")
+    artifacts_dir.mkdir(exist_ok=True)
+    log1_path = artifacts_dir / "t-init_step0.log"
+    log2_path = artifacts_dir / "t-process-ok_step1.log"
+    log1_path.write_text('{\n  "status": "ok",\n  "data": {')
+    log2_path.write_text('{\n  "status": "ok",\n  "original": "Hello World",\n ...')
+    
     mock_run_results = [
-        {
-            "id": "t-init",
-            "status": "ok",
-            "duration_sec": 0.01,
-            "log_file": "orchestrator_artifacts/t-init_step0.log"
-        },
-        {
-            "id": "t-process-ok",
-            "status": "ok",
-            "duration_sec": 0.52,
-            "log_file": "orchestrator_artifacts/t-process-ok_step1.log"
-        }
+        {"id": "t-init", "status": "ok", "duration_sec": 0.01, "log_file": str(log1_path)},
+        {"id": "t-process-ok", "status": "ok", "duration_sec": 0.52, "log_file": str(log2_path)}
     ]
+    
+    print("--- Local Run Report (with log previews) ---")
     report = generate_run_summary(mock_run_results)
-    print("--- Local Run Report (Fallback Behavior) ---")
     print(report)
 
-    # To demonstrate the CI behavior, we can temporarily set the env vars
-    print("\n--- CI Run Report (Simulated Behavior) ---")
-    os.environ["GITHUB_RUN_ID"] = "123456789"
-    os.environ["GITHUB_REPOSITORY"] = "Daeastr/adf1-framework"
-    report_ci = generate_run_summary(mock_run_results)
-    print(report_ci)
-    del os.environ["GITHUB_RUN_ID"]
-    del os.environ["GITHUB_REPOSITORY"]
+    # Clean up dummy files
+    log1_path.unlink()
+    log2_path.unlink()
