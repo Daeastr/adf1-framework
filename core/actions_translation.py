@@ -97,22 +97,12 @@ def translation_process(context):
     return {"status": "error", "message": "No text or batch provided"}
 
 @register_action("translate_text")
-def translate_text(context):
-    text = context.get("text", "")
-    src = context.get("source_language", "en")
-    tgt = context.get("target_language", "es")
-    glossary = context.get("glossary", {})
-
-    logger.info("[translate_text] Entry: src=%s tgt=%s text=%r", src, tgt, text)
-    engine = get_engine(context.get("engine", "mock"), context)
-    result = engine.translate(text, src, tgt, glossary)
-    payload = {
+def translate_text(context, text):
+    """Stub translation: simply echoes the input text."""
+    return {
         "status": "ok",
-        "original": result.original,
-        "translated": result.translated,
-        "source_language": result.source_language,
-        "target_language": result.target_language,
-        "confidence": result.confidence,
+        "data": {
+            "translated_text": text,  # placeholder for real engine output
+            "note": "stub — no real translation performed"
+        }
     }
-    logger.info("[translate_text] Exit: %s", payload)
-    return payload
