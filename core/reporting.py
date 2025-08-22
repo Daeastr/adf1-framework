@@ -9,7 +9,7 @@ from itertools import islice
 HIGHLIGHT_PATTERNS = {
     r"\bERROR\b": "🔴 ERROR",
     r"\bWARNING\b": "🟡 WARNING",
-    r"\bFAIL(ed|ure)?\b": "🔴 FAIL"
+    r"\bFAIL(?:ED|URE)?\b": "🔴 FAIL"
 }
 
 def _highlight_severity(text: str) -> str:
@@ -24,22 +24,23 @@ def _preview_log(path: str, lines: int = 3, collapse_after: int = 5) -> str:
     """Return the first N lines from a log file; collapse if it exceeds collapse_after."""
     try:
         with open(path, "r", encoding="utf-8", errors="ignore") as f:
-            head = [line.rstrip("\n") for line in f]
+            all_lines = [line.rstrip("\n") for line in f]
         
-        if len(head) > collapse_after:
-            # If the log is long, create a collapsible section
-            preview_text = "\n".join(head[:collapse_after])
-            # Apply highlighting before returning
-            preview_text = _highlight_severity(preview_text)
-            return f"<details><summary>Preview first {collapse_after} lines</summary>\n\n```\n{preview_text}\n```\n\n</details>"
+        # Apply highlighting to each line before making formatting decisions
+        all_lines = [_highlight_severity(line) for line in all_lines]
+        
+        if len(all_lines) > collapse_after:
+            preview_text = "\n".join(all_lines[:collapse_after])
+            return (
+                f"<details><summary>Preview first {collapse_after} lines</summary>\n\n"
+                f"```\n{preview_text}\n```\n\n</details>"
+            )
         else:
-            # If the log is short, show a simple code block
-            preview_text = "\n".join(head[:lines])
-            # Apply highlighting before returning
-            preview_text = _highlight_severity(preview_text)
+            preview_text = "\n".join(all_lines[:lines])
             return f"```\n{preview_text}\n```"
     except OSError:
         return ""
+
 
 # --- Main Reporting Logic ---
 
