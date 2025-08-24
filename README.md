@@ -1,40 +1,29 @@
-Developer notes
-===============
+# ADF1 Framework
+[![CI stub/mock/live](https://github.com/Daeastr/adf1-framework/actions/workflows/ci.yml/badge.svg)](https://github.com/Daeastr/adf1-framework/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/Daeastr/adf1-framework/branch/main/graph/badge.svg)](https://codecov.io/gh/Daeastr/adf1-framework)
 
-Pre-commit hook: sync action map & generated placeholders
--------------------------------------------------------
-This repository includes a local pre-commit hook that keeps `tests/action_map.json` in sync with the instruction docs and automatically scaffolds placeholder test files under `tests/__generated__/` so CI never fails with "file not found" for mapped tests.
+Cockpit-style orchestration framework with stub/mock/live translation modes.
 
-How it works
-- `scripts/sync_action_map.py` reads valid instruction documents (via `core.orchestrator.load_valid_instructions()`), updates `tests/action_map.json` with any missing action→test mappings, and writes minimal placeholder tests if a mapped test file is missing.
-- `scripts/run_sync_action_map.py` is a small launcher that prefers the repo venv (`./venv` or `./.venv`) if present and re-executes the sync script with the correct interpreter. The pre-commit hook is configured to call this launcher.
+This repository contains the core logic for the ADF1 framework, including the orchestrator, action definitions, reporting tools, and a multi-dimensional CI/CD pipeline for robust testing.
 
-Local setup
-1. Activate your repo venv (optional but recommended):
+## Getting Started
 
-   PowerShell:
-   ```powershell
-   .\venv\Scripts\Activate.ps1
-   pip install pre-commit
-   pre-commit install
-   ```
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/Daeastr/adf1-framework.git
+    cd adf1-framework
+    ```
 
-   Or, using pip in the active environment:
-   ```powershell
-   pip install pre-commit
-   pre-commit install
-   ```
+2.  **Install dependencies using Poetry:**
+    ```bash
+    pip install poetry
+    poetry install
+    ```
 
-2. From now on, commits will run the local hook which updates `tests/action_map.json` and creates placeholders under `tests/__generated__/` when needed.
+3.  **Run the tests:**
+    ```bash
+    poetry run pytest
+    ```
 
-Run manually
-- To run the sync manually (without installing pre-commit):
-
-  ```powershell
-  python scripts/run_sync_action_map.py
-  ```
-
-Notes
-- Placeholder tests are intentionally minimal (a single passing test). Remove or replace them with real tests as the codebase evolves.
-- If you prefer placeholders in a different directory, update `scripts/sync_action_map.py` which controls the generated path.
+... (rest of the README content) ...
 
