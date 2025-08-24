@@ -1,9 +1,20 @@
-﻿# Defines project metadata, dependencies, and scripts using the Poetry tool.
-# This is the central configuration file for the project.
-[tool.poetry]
+# PEP 621 standardized project metadata. This is the modern, preferred way
+# to declare core information for tools like pip and build.
+[project]
 name = "adf1-framework"
 version = "0.1.0"
-description = "Core orchestration + cockpit guardrails for AADF/translation app"
+description = ""
+authors = [
+    { name = "Basil", email = "you@example.com" }
+]
+
+# Defines project metadata, dependencies, and scripts using the Poetry tool.
+# This is the central configuration file for the project.
+[tool.poetry]
+# Keep existing keys for compatibility until all tooling is updated
+name = "adf1-framework"
+version = "0.1.0"
+description = ""
 authors = ["Basil <you@example.com>"]
 
 # Specifies the project's runtime dependencies.
