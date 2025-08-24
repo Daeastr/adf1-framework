@@ -1,8 +1,50 @@
 # core/translation_engine.py
+import logging
 from dataclasses import dataclass
 from typing import Dict, Optional
 
-# --- Data Contracts ---
+# --- New Provider-Agnostic Wrapper ---
+
+class SafeTranslateClient:
+    """
+    Wraps a live translation provider with:
+      - Stub fallback when no key or provider fails
+      - Consistent logging to cockpit artifacts
+      - Mock-friendly design for CI
+    """
+
+    def __init__(self, provider_cls=None, api_key: Optional[str] = None):
+        self.api_key = api_key
+        self.provider_cls = provider_cls
+        self.provider = None
+
+        if self.api_key and self.provider_cls:
+            try:
+                self.provider = self.provider_cls(api_key=self.api_key)
+                logging.info("[SafeTranslateClient] Live provider initialised")
+            except Exception as e:
+                logging.warning(f"[SafeTranslateClient] Failed to init provider: {e}")
+        else:
+            logging.info("[SafeTranslateClient] Running in stub mode")
+
+    def translate(self, source_lang: str, target_lang: str, text: str) -> str:
+        """
+        Attempts live translation; falls back to echo stub with markers.
+        """
+        if self.provider:
+            try:
+                # Assuming the real provider has a method with this signature
+                return self.provider.translate(
+                    text=text, source_language=source_lang, target_language=target_lang
+                )
+            except Exception as e:
+                logging.error(f"[SafeTranslateClient] Live call failed: {e}")
+
+        # Fallback path — tagged for easy cockpit filtering
+        return f"[STUB:{source_lang}->{target_lang}] {text}"
+
+
+# --- Existing Engine Logic ---
 
 @dataclass
 class TranslationResult:
@@ -12,8 +54,6 @@ class TranslationResult:
     source_language: str
     target_language: str
     confidence: float
-
-# --- Base Engine ---
 
 class TranslationEngine:
     """Abstract base class for translation engines."""
@@ -26,8 +66,6 @@ class TranslationEngine:
     ) -> TranslationResult:
         raise NotImplementedError("Subclasses must implement the translate method.")
 
-# --- Concrete Implementations ---
-
 class MockEngine(TranslationEngine):
     """A mock engine for testing and offline development."""
     def translate(
@@ -37,15 +75,11 @@ class MockEngine(TranslationEngine):
         tgt: str,
         glossary: Optional[Dict[str, str]] = None
     ) -> TranslationResult:
-        # Apply glossary terms first
         translated_text = text
         if glossary:
             for term, replacement in glossary.items():
                 translated_text = translated_text.replace(term, replacement)
-
-        # Simple reversal for mock behavior
         translated_text = translated_text[::-1]
-
         return TranslationResult(
             original=text,
             translated=f"[MOCK from {src} to {tgt}] {translated_text}",
@@ -63,11 +97,6 @@ class GeminiEngine(TranslationEngine):
         tgt: str,
         glossary: Optional[Dict[str, str]] = None
     ) -> TranslationResult:
-        # Placeholder for a real API call to Gemini
-        # In a real implementation, you would use the Gemini client library here
-        # and incorporate the glossary into the prompt.
-        
-        # For now, return a placeholder similar to the mock engine
         return TranslationResult(
             original=text,
             translated=f"[GEMINI SIMULATION from {src} to {tgt}] {text}",
@@ -76,14 +105,8 @@ class GeminiEngine(TranslationEngine):
             confidence=0.95
         )
 
-# --- Engine Factory ---
-
 def get_engine(name: str, context: dict) -> TranslationEngine:
     """Factory function to get a translation engine instance."""
-
     if name.lower() == "gemini":
-        # Here you could pass API keys or other context from the `context` dict
         return GeminiEngine()
-    
-    # Default to the mock engine for safety and testing
     return MockEngine()
