@@ -21,7 +21,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.12" # Note: Your pyproject.toml specifies 3.13
 
       - name: Install dependencies
         run: |
@@ -35,7 +35,7 @@ jobs:
         run: |
           if [ "${{ matrix.mode }}" = "mock" ]; then
             pytest -m "mock_provider"
-          elif [ "${{ matrix.cimodede }}" = "live" ]; then
+          elif [ "${{ matrix.mode }}" = "live" ]; then
             pytest -m "live_provider"
           else
             pytest -m "stub_provider"
