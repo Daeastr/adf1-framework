@@ -1,10 +1,14 @@
 # core/translation_agent.py
 from __future__ import annotations
 from typing import Optional, Dict
-from .agent_base import BaseAgent
-from .translation_engine import TranslationEngine, get_engine, TranslationResult
 
-class TranslationAgent(Base.Agent):
+# No import needed for TranslationEngine from this file's perspective.
+# Any other file can now safely import it from its canonical location.
+from core.agent_base import BaseAgent
+from core.translation_engine import TranslationEngine, get_engine, TranslationResult
+
+
+class TranslationAgent(BaseAgent):
     """
     Agent responsible for coordinating translation requests
     within the delegation framework.
@@ -29,14 +33,7 @@ class TranslationAgent(Base.Agent):
     ) -> TranslationResult:
         """
         Execute a translation request via the configured engine.
-
-        :param text: The text to translate.
-        :param target_language: Target language code (e.g., 'es').
-        :param source_language: Optional source language code; if None, engine may auto-detect.
-        :param glossary: Optional term replacements for domain-specific translation.
-        :return: TranslationResult containing original, translated, languages, confidence.
         """
-        # Here you can expand with logging, rollback hooks, or artifact writes
         return self.engine.translate(
             text=text,
             src=source_language or "auto",
