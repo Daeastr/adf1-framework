@@ -1,56 +1,52 @@
-# PEP 621 standardized project metadata. This is the modern, preferred way
+﻿# PEP 621 standardized project metadata. This is the modern, preferred way
 # to declare core information for tools like pip and build.
 [project]
 name = "adf1-framework"
 version = "0.1.0"
-description = ""
+description = "Your short package description"
 authors = [
-    { name = "Basil", email = "you@example.com" }
+    { name = "Basil Example", email = "basil@example.com" }
 ]
+dependencies = [
+    # Dependencies from the [tool.poetry.dependencies] section would be mirrored here.
+    # e.g., "fastapi>=0.100.0"
+]
+requires-python = ">=3.13"
+
 
 # Defines project metadata, dependencies, and scripts using the Poetry tool.
-# This is the central configuration file for the project.
+# This section is kept for backward compatibility.
 [tool.poetry]
-# Keep existing keys for compatibility until all tooling is updated
 name = "adf1-framework"
 version = "0.1.0"
 description = ""
 authors = ["Basil <you@example.com>"]
 
-# Specifies the project's runtime dependencies.
 [tool.poetry.dependencies]
-# Pin Python to a specific minor version to ensure a consistent runtime environment.
-python = "^3.11"
+python = "^3.13"
+# Other dependencies would be listed here as well.
 
 # Declares the build system for PEP 517 compatibility.
-# This allows tools like pip to understand how to build the project from source.
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 # Configures the Ruff linter and formatter for code quality and consistency.
 [tool.ruff]
-# Match the Black code formatter's default line length for contributor familiarity.
 line-length = 88
-# Ensure Ruff's rules are compatible with the project's pinned Python version.
-target-version = "py311"
+target-version = "py311" # Consider updating this to "py313" to match your Python version
 
 # Configures Ruff's integrated import sorter (isort).
 [tool.ruff.isort]
-# Define this project's own modules to separate them from third-party libraries.
-# This is a critical guardrail for organizing imports.
 known_first_party = [
-    "core",                    # Orchestrator + validators
-    "orchestrator",            # Session wiring & intake loops
-    "services",                # App-specific business logic
-    "api",                     # FastAPI endpoints
-    "security",                # Sanitizers, guards
-    "utils"                    # Cross-cutting helpers
+    "core",
+    "orchestrator",
+    "services",
+    "api",
+    "security",
+    "utils"
 ]
-# A style preference to keep 'import as' statements compact.
 combine_as_imports = true
-# Enforces strict alphabetical ordering within import sections.
-# This helps prevent subtle import order issues and potential circular references.
 force_sort_within_sections = true
 
 # Application-specific settings for the Translation App, controlled by a feature flag.
