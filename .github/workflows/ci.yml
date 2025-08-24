@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [stub, mock, live]
+    env:
+      PYTHONPATH: .
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install poetry
+          poetry install
+
+      - name: Run tests (${{ matrix.mode }})
+        env:
+          TRANSLATION_API_KEY: ${{ secrets.TRANSLATION_API_KEY }}
+          TRANSLATION_TEST_MODE: ${{ matrix.mode }}
+        run: |
+          if [ "${{ matrix.mode }}" = "mock" ]; then
+            pytest -m "mock_provider"
+          elif [ "${{ matrix.cimodede }}" = "live" ]; then
+            pytest -m "live_provider"
+          else
+            pytest -m "stub_provider"
+          fi
