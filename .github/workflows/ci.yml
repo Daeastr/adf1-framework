@@ -15,13 +15,12 @@ jobs:
     env:
       PYTHONPATH: .
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12" # Note: Your pyproject.toml specifies 3.13
+          python-version: "3.13"
 
       - name: Install dependencies
         run: |
