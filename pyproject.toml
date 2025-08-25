@@ -1,4 +1,4 @@
-﻿# PEP 621 standardized project metadata. This is the modern, preferred way
+# PEP 621 standardized project metadata. This is the modern, preferred way
 # to declare core information for tools like pip and build.
 [project]
 name = "adf1-framework"
