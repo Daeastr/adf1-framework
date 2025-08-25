@@ -33,13 +33,10 @@ dependencies = [
   "coverage>=7.5.3,<8.0.0"
 ]
 
-# Defines project metadata, dependencies, and scripts using the Poetry tool.
-# This section is kept for backward compatibility.
+# This section now only contains Poetry-specific settings.
+# Core metadata is inherited from the [project] section.
 [tool.poetry]
-name = "adf1-framework"
-version = "0.1.0"
-description = "Cockpit‑style orchestration framework with stub/mock/live translation modes."
-authors = ["Basil Example <basil@example.com>"]
+# name, version, description, and authors have been removed.
 
 [tool.poetry.dependencies]
 python = ">=3.13"
