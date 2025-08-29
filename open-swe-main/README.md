@@ -48,4 +48,9 @@ Open SWE can be used in multiple ways:
 # Documentation
 
 To get started using Open SWE locally, see the [documentation here](https://docs.langchain.com/labs/swe/).
+---
+
+**Recent Milestone — Aug 28 2025:** Session 19 complete.  
+Voice I/O implemented end‑to‑end, feature‑flagged via `STT_ENABLED`, and [fully documented in the Session 19 logbook](instructions/session19_voice_io_logbook.md).
+
 
