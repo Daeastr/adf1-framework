@@ -34,22 +34,12 @@ def read_root():
     return {"status": "ok", "message": "API is running"}
 
 # ... (existing /pair and /accept routes) ...
-@app.post("/pair")
-async def create_pair(conversation_id: str = Query(...), authorization: str = Header(None)):
-    # ... implementation
-    pass
-
-@app.post("/accept")
-async def accept_pair(code: str = Query(...), authorization: str = Header(None)):
-    # ... implementation
-    pass
-
 
 # --- PATCH APPLIED HERE: NEW /speech ENDPOINT ---
 @app.post("/speech")
 async def speech(
     conversation_id: str = Form(...),
-    sender: str = Form(...),  # e.g., "user1" or "user2"
+    sender: str = Form(...),  # "user1" or "user2"
     audio: UploadFile = File(...),
     authorization: str = Header(None),
 ):
@@ -67,4 +57,4 @@ async def speech(
         raise HTTPException(status_code=501, detail="Server-side STT disabled")
 
     # 🔜 When enabled: transcribe audio here, then forward text into add_message
-    return {"status": "ok", "note": "STT disabled — endpoint scaffold only"}
+    return {"status": "ok", "note": "STT enabled, but transcription logic is a placeholder."}
