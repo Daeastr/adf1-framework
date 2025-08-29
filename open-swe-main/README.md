@@ -12,6 +12,10 @@
 
 Open SWE is an open-source cloud-based asynchronous coding agent built with [LangGraph](https://langchain-ai.github.io/langgraphjs/). It autonomously understands codebases, plans solutions, and executes code changes across entire repositories—from initial planning to opening pull requests.
 
+> **🔊 Voice I/O live (ADF1 extension):**  
+> Now includes on-device and server-side speech-to-text, auto-selecting per browser.  
+> Feature-flagged via `STT_ENABLED` and [fully documented in the Session 19 logbook](instructions/session19_voice_io_logbook.md).
+
 > [!TIP]
 > Try out Open SWE yourself using our [public demo](https://swe.langchain.com)!
 >
