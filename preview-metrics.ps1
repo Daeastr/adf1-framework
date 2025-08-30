@@ -1,0 +1,21 @@
+@'
+# Force UTF‑8 output every time this script runs
+chcp 65001 > $null
+$OutputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+
+param(
+    [Parameter(Mandatory = $false)]
+    [string[]]$Lines
+)
+
+if (-not $Lines -or $Lines.Count -eq 0) {
+    $Lines = @(
+        '✅ detect_language [0.42s — 🟢 FAST] — OK',
+        '🟡 translate_text [3.84s — SLOW] (512 tok | 0.42s API | $0.0021) — OK'
+    )
+}
+
+foreach ($line in $Lines) {
+    Write-Output $line
+}
+'@ | Out-File -FilePath .\scripts\preview-metrics.ps1 -Encoding utf8NoBOM

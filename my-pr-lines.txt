@@ -1,0 +1,2 @@
+﻿✅ detect_language [0.42s — 🟢 FAST] — OK
+🟡 translate_text [3.84s — SLOW] (512 tok | 0.42s API | $0.0021) — OK
