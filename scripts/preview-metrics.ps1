@@ -2,32 +2,28 @@
 chcp 65001 | Out-Null
 $OutputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 
-# Ensure orchestrator_artifacts exists
+# --- CONFIG ---
 $logDir = "orchestrator_artifacts"
-if (-not (Test-Path $logDir)) {
-    New-Item -ItemType Directory -Path $logDir | Out-Null
+$pythonPreview = "scripts/preview_metrics.py"  # We'll create this helper
+
+# --- MODE 1: Replay from latest log ---
+if (Test-Path $logDir) {
+    $latestLog = Get-ChildItem -Path $logDir -Filter "*.log" |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+
+    if ($latestLog) {
+        Write-Output "📄 Previewing from log: $($latestLog.Name)"
+        Write-Output ""
+        Get-Content $latestLog.FullName -Encoding UTF8 | ForEach-Object { Write-Output $_ }
+        exit 0
+    }
 }
 
-# Run orchestrator with Gemini metrics instruction and capture output
-$env:PYTHONIOENCODING = "utf-8"
-$logFile = Join-Path $logDir "run.log"
-
-python -m core.orchestrator instructions/preview-metrics.json |
-    Tee-Object -FilePath $logFile -Encoding UTF8 | Out-Null
-
-# Find newest log
-$latestLog = Get-ChildItem -Path $logDir -Filter "*.log" |
-    Sort-Object LastWriteTime -Descending |
-    Select-Object -First 1
-
-if (-not $latestLog) {
-    Write-Output "❌ No log files found in $logDir"
-    exit 1
+# --- MODE 2: Live reporter output ---
+if (Test-Path $pythonPreview) {
+    Write-Output "⚡ No logs found — generating live preview via reporter..."
+    python $pythonPreview
+} else {
+    Write-Output "❌ No logs found and no live preview script available."
 }
-
-Write-Output "📄 Previewing: $($latestLog.Name)"
-Write-Output ""
-
-# Output log content exactly as-is
-Get-Content $latestLog.FullName -Encoding UTF8 |
-    ForEach-Object { Write-Output $_ }
