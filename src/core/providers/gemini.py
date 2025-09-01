@@ -10,9 +10,10 @@ load_dotenv()
 def _pick_latest_gemini_model():
     """
     Returns the newest Gemini model that supports generateContent.
-    Falls back to gemini-2.5-pro if none found.
+    Falls back to a powerful default if the API call fails or no models are found.
     """
     try:
+        print("[GeminiProvider] Querying for the latest available models...")
         # Filter models to find the latest compatible Gemini model
         models = [
             m.name.split("/")[-1]
@@ -21,12 +22,14 @@ def _pick_latest_gemini_model():
         ]
         if models:
             models.sort() # Sort alphabetically/numerically to find the latest
-            print(f"[GeminiProvider] Auto-selected model: {models[-1]}")
-            return models[-1]
+            latest_model = models[-1]
+            print(f"[GeminiProvider] Auto-selected model: {latest_model}")
+            return latest_model
     except Exception as e:
-        print(f"[GeminiProvider] Could not auto-pick model: {e}. Falling back.")
+        print(f"[GeminiProvider] Could not auto-pick model due to an API error: {e}. Falling back.")
     # A safe, powerful default
-    return "gemini-2.5-pro"
+    print("[GeminiProvider] Falling back to default model: gemini-1.5-pro-latest")
+    return "gemini-1.5-pro-latest"
 
 class GeminiProvider:
     """
@@ -35,8 +38,8 @@ class GeminiProvider:
     """
     def __init__(self, api_key: str = None, model_name: str = None):
         """
-        Initializes the provider, automatically finding the API key and
-        selecting the latest model if not specified.
+        Initializes the provider, automatically finding the API key from .env
+        or environment, and selecting the latest model if not specified.
         """
         if api_key is None:
             api_key = os.environ.get("GOOGLE_API_KEY")
