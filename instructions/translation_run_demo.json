@@ -1,0 +1,12 @@
+{
+  "id": "translation-run-demo",
+  "app": "translation",
+  "steps": [
+    { "id": "t‑init", "action": "translation_init", "params": {} },
+    { "id": "t‑process", "action": "translation_process", "params": { "text": "Hello world" } },
+    { "id": "t‑finalize", "action": "translation_finalize", "params": {} }
+  ],
+  "priority": "medium",
+  "risk": "safe",
+  "capabilities": ["NETWORK"]
+}

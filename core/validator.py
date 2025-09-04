@@ -32,3 +32,13 @@ def validate_instruction_file(file_path: Path) -> dict:
     except jsonschema.exceptions.ValidationError as e:
         raise ValidationError(f"{file_path} is invalid: {e.message}")
     return data
+import pytest
+from core import validator
+
+def test_validator_accepts_allowed_action():
+    task = {"action": "create_endpoint"}
+    assert validator.validate_instruction_set(task) is True
+
+def test_validator_rejects_unallowed_action():
+    task = {"action": "drop_database"}
+    assert validator.validate_instruction_set(task) is False

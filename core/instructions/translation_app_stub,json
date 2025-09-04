@@ -1,0 +1,10 @@
+{
+  "id": "translation-app-stub",
+  "app": "translation",
+  "mode": "single_party",
+  "dialog_flow": [],
+  "recalibration": "on",
+  "priority": "medium",
+  "risk": "review",
+  "capabilities": ["NETWORK"]
+}

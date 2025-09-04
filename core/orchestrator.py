@@ -1,20 +1,30 @@
 # core/orchestrator.py
+from typing import Any, Dict
 
-from pathlib import Path
-from core.validator import validate_instruction_file, ValidationError
+# Ensure actions registry exists
+_actions: dict[str, callable] = {}
 
-def load_all_instructions():
-    instructions_dir = Path(__file__).parent.parent / "instructions"
-    for file_path in instructions_dir.glob("*.json"):
-        # ⬇ Skip the schema definition itself
-        if file_path.name == "schema.json":
-            continue
+def register_action(name: str):
+    """Decorator to register an action by name."""
+    def decorator(func):
+        _actions[name] = func
+        return func
+    return decorator
 
-        try:
-            instruction = validate_instruction_file(file_path)
-            print(f"✅ Loaded {file_path.name}: {instruction}")
-        except ValidationError as e:
-            print(f"❌ {file_path.name} failed validation: {e}")
+def call_action(name: str, *args, **kwargs) -> Any:
+    """Look up and execute a registered action by name."""
+    if name not in _actions:
+        raise ValueError(f"Action '{name}' not registered.")
+    return _actions[name](*args, **kwargs)
 
-if __name__ == "__main__":
-    load_all_instructions()
+def create_context(**kwargs) -> Dict[str, Any]:
+    """Factory for an execution context passed into actions."""
+    context = {
+        "user": kwargs.get("user", "system"),
+        "meta": kwargs.get("meta", {}),
+        # add any other default keys your actions expect
+    }
+    return context
+
+# Force-load actions so they self-register
+from core import actions_translation  # noqa: E402

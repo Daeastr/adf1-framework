@@ -1,4 +1,3 @@
-# src/utils/config.py
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
@@ -18,7 +17,7 @@ class Settings(BaseSettings):
     
     # Feature-specific settings
     rate_limit_rps: int = 2
-    stt_enabled: bool = False  # 🚩 NEW: gate server-side speech-to-text
+    stt_enabled: bool = False  # NEW: toggle for server-side speech-to-text
 
     class Config:
         # Pydantic will automatically look for and load variables from a .env file.

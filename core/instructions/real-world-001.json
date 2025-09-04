@@ -1,0 +1,26 @@
+// instructions/real-world-001.json
+[
+  {
+    "id": "rw-001",
+    "action": "create_endpoint",
+    "params": { "name": "orders", "route": "/orders" },
+    "priority": "high",
+    "risk": "critical"
+  },
+  {
+    "id": "rw-002",
+    "action": "transform",
+    "params": { "source": "docs/", "target": "docs/" },
+    "priority": "medium",
+    "risk": "review"
+  },
+  {
+    "id": "rw-003",
+    "action": "apply_patch",
+    "params": {
+      "diff": "--- a/src/cart.ts\n+++ b/src/cart.ts\n@@\n+export const MAX_ITEMS = 50;\n"
+    },
+    "priority": "low",
+    "risk": "safe"
+  }
+]

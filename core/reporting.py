@@ -1,0 +1,55 @@
+"""
+Reporting functions for step summaries and badges.
+"""
+from typing import Dict, Any
+
+
+def render_step_summary(step: Dict[str, Any]) -> str:
+    """Render a step summary with metadata and logs."""
+    lines = []
+    lines.append(f"### 🧩 Step {step['id']} — {step['action']}")
+
+    # Metadata badges - updated format
+    priority = step.get("priority", "unknown").capitalize()
+    risk = step.get("risk", "unknown").capitalize()
+    lines.append(f"🧭 Priority: {priority} | 🚨 Risk: {risk}")
+
+    # Capabilities display
+    capabilities = step.get("_capabilities", [])
+    if capabilities:
+        lines.append(f"🔐 **Capabilities**: {', '.join(capabilities)}")
+
+    # Agent assignment
+    agent = step.get("_agent", "UnknownAgent")
+    lines.append(f"🤖 **Agent**: `{agent}`")
+
+    # Existing output/logs
+    if "duration_sec" in step:
+        lines.append(f"⏱ Duration: {step['duration_sec']}s")
+    
+    # Updated log file check using .get() method
+    if step.get("log_file"):
+        lines.append(f"[📄 Full Log]({step['log_file']})")
+
+    return "\n".join(lines)
+
+
+def render_step_badges(instruction: dict) -> str:
+    badges = []
+    if "priority" in instruction:
+        p = instruction["priority"].capitalize()
+        pcolor = {"Low": "brightgreen", "Medium": "yellow", "High": "red"}.get(p, "lightgrey")
+        badges.append(f"![Priority: {p}](https://img.shields.io/badge/Priority-{p}-{pcolor})")
+    if "risk" in instruction:
+        r = instruction["risk"].capitalize()
+        rcolor = {"Safe": "brightgreen", "Review": "yellow", "Critical": "red"}.get(r, "lightgrey")
+        badges.append(f"![Risk: {r}](https://img.shields.io/badge/Risk-{r}-{rcolor})")
+    return " ".join(badges)
+
+
+def render_multiple_steps(steps: list) -> str:
+    """Render summaries for multiple steps."""
+    summaries = []
+    for step in steps:
+        summaries.append(render_step_summary(step))
+    return "\n\n".join(summaries)"

@@ -1,0 +1,33 @@
+{
+  "id": "demo-rw-big",
+  "action": "noop",
+  "params": {},
+  "priority": "high",
+  "risk": "critical",
+  "steps": [
+    {
+      "id": "big-step-1",
+      "action": "noop",
+      "params": {}
+    },
+    {
+      "id": "big-step-2",
+      "action": "validate",
+      "params": {}
+    },
+    {
+      "id": "big-step-3",
+      "action": "transform",
+      "params": {
+        "target": "docs/**/*.md"
+      }
+    },
+    {
+      "id": "big-step-4",
+      "action": "apply_patch",
+      "params": {
+        "diff": "--- a/src/cart.ts\n+++ b/src/cart.ts\n@@\n+export const MAX_ITEMS = 50;"
+      }
+    }
+  ]
+}

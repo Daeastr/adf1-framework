@@ -1,0 +1,7 @@
+{
+  "id": "demo-000",
+  "action": "noop",
+  "params": {},
+  "priority": "low",
+  "risk": "safe"
+}
