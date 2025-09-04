@@ -1,27 +1,29 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pathlib import Path
+import json
 
 class Settings(BaseSettings):
-    """
-    Manages all application settings, loading them from environment variables
-    and .env files. This provides a single, type-safe source of truth for
-    all configuration.
-    """
-    # Core application settings
     env: str = "dev"
-    firestore_collection_prefix: str = "prod"
-
-    # API Keys and Service Credentials
     google_api_key: str
     firebase_project_id: str
-    firebase_service_account_json: str
-    
-    # Feature-specific settings
+    firebase_service_account_json: str  # can be path or raw JSON
+    firestore_collection_prefix: str = "prod"
     rate_limit_rps: int = 2
-    stt_enabled: bool = False  # NEW: toggle for server-side speech-to-text
+    stt_enabled: bool = False  # if you’ve already added this
 
-    class Config:
-        # Pydantic will automatically look for and load variables from a .env file.
-        env_file = ".env"
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
-# Create a single, importable instance of the settings for the whole app to use.
+    @property
+    def firebase_credentials(self) -> dict:
+        """
+        Load Firebase credentials from a file path or JSON string.
+        """
+        val = self.firebase_service_account_json
+        path = Path(val)
+        if path.exists():
+            return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(val)
+
 settings = Settings()
+
+
